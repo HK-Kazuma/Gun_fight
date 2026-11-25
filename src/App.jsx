@@ -1,0 +1,114 @@
+import { useCallback, useEffect, useState } from 'react';
+import Title from './components/Title.jsx';
+import Briefing from './components/Briefing.jsx';
+import GameView from './components/GameView.jsx';
+import Result from './components/Result.jsx';
+import { AchievementsModal, ControlsModal } from './components/Modals.jsx';
+import { ACHIEVEMENTS, applyResult, loadSave } from './game/achievements.js';
+import { MISSIONS } from './game/maps.js';
+import { audio } from './game/audio.js';
+
+export default function App() {
+  const [screen, setScreen] = useState('title');
+  const [modal, setModal] = useState(null);
+  const [missionIndex, setMissionIndex] = useState(0);
+  const [opId, setOpId] = useState('holt');
+  const [save, setSave] = useState(() => loadSave());
+  const [result, setResult] = useState(null);
+  const [unlocked, setUnlocked] = useState([]);
+  const [runKey, setRunKey] = useState(0);
+  const [muted, setMuted] = useState(false);
+
+  const deploy = useCallback(() => {
+    audio.init();
+    setRunKey((k) => k + 1);
+    setScreen('game');
+  }, []);
+
+  const onEnd = useCallback(
+    (r) => {
+      setSave((prev) => {
+        const { save: next, unlocked: u } = applyResult(prev, r);
+        setUnlocked(u);
+        return next;
+      });
+      setResult(r);
+      setScreen('result');
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.code !== 'Enter' || modal) return;
+      if (screen === 'title') {
+        audio.init();
+        setScreen('brief');
+      } else if (screen === 'brief') deploy();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [screen, modal, deploy]);
+
+  const toggleMute = () => {
+    audio.init();
+    audio.setMuted(!muted);
+    setMuted(!muted);
+  };
+
+  return (
+    <div className="app">
+      {screen === 'title' && (
+        <Title
+          onStart={() => {
+            audio.init();
+            setScreen('brief');
+          }}
+          onAchievements={() => setModal('ach')}
+          onControls={() => setModal('ctrl')}
+          muted={muted}
+          onToggleMute={toggleMute}
+          unlockedCount={Object.keys(save.achievements).length}
+          totalAch={ACHIEVEMENTS.length}
+        />
+      )}
+      {screen === 'brief' && (
+        <Briefing
+          missionIndex={missionIndex}
+          setMissionIndex={setMissionIndex}
+          opId={opId}
+          setOpId={setOpId}
+          onDeploy={deploy}
+          onBack={() => setScreen('title')}
+          save={save}
+        />
+      )}
+      {screen === 'game' && (
+        <GameView
+          key={runKey}
+          runKey={runKey}
+          missionIndex={missionIndex}
+          opId={opId}
+          onEnd={onEnd}
+          onQuit={() => setScreen('brief')}
+          onRestart={deploy}
+        />
+      )}
+      {screen === 'result' && result && (
+        <Result
+          result={result}
+          unlocked={unlocked}
+          onRetry={deploy}
+          onNext={() => {
+            setMissionIndex((i) => Math.min(MISSIONS.length - 1, i + 1));
+            deploy();
+          }}
+          onBrief={() => setScreen('brief')}
+          onTitle={() => setScreen('title')}
+        />
+      )}
+      {modal === 'ach' && <AchievementsModal save={save} onClose={() => setModal(null)} />}
+      {modal === 'ctrl' && <ControlsModal onClose={() => setModal(null)} />}
+    </div>
+  );
+}
