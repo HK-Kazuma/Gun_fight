@@ -1,4 +1,6 @@
 // WebAudio による効果音合成（外部音源ファイル不要）
+import { TitleMusic } from './music.js';
+
 class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -254,6 +256,19 @@ class AudioEngine {
     siren.start();
     lfo.start();
     this.ambient = { out, nodes: [rain, drone, siren, lfo] };
+  }
+
+  // タイトル／ブリーフィング画面の BGM
+  startTitleMusic() {
+    if (!this.ctx || this.titleMusic) return;
+    this.titleMusic = new TitleMusic(this.ctx, this.master);
+    this.titleMusic.start();
+  }
+
+  stopTitleMusic() {
+    if (!this.titleMusic) return;
+    this.titleMusic.stop();
+    this.titleMusic = null;
   }
 
   stopAmbient() {

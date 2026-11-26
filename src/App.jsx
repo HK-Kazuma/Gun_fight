@@ -40,6 +40,28 @@ export default function App() {
     saveSettings(s);
   }, []);
   const touch = resolveTouch(settings);
+  const [soundReady, setSoundReady] = useState(false);
+
+  // タイトル／ブリーフィングでは BGM を流す。ブラウザの制限で、最初の操作があるまでは音を出せない
+  useEffect(() => {
+    const menu = screen === 'title' || screen === 'brief';
+    if (!menu) {
+      audio.stopTitleMusic();
+      return undefined;
+    }
+    const begin = () => {
+      audio.init();
+      audio.startTitleMusic();
+      setSoundReady(true);
+    };
+    if (audio.ctx) begin();
+    window.addEventListener('pointerdown', begin);
+    window.addEventListener('keydown', begin);
+    return () => {
+      window.removeEventListener('pointerdown', begin);
+      window.removeEventListener('keydown', begin);
+    };
+  }, [screen]);
 
   const deploy = useCallback(() => {
     audio.init();
@@ -90,6 +112,7 @@ export default function App() {
           onAchievements={() => setModal('ach')}
           onControls={() => setModal('ctrl')}
           onSettings={() => setModal('settings')}
+          soundReady={soundReady}
           muted={muted}
           onToggleMute={toggleMute}
           unlockedCount={Object.keys(save.achievements).length}
