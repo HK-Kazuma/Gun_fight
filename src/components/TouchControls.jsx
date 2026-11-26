@@ -3,6 +3,7 @@ import Placed from './Placed.jsx';
 import { CTRL_SIZE } from '../game/settings.js';
 
 const DEAD = 0.14;
+const SLOP = 4; // これ以上指が動くまで照準は変えない（px）
 
 // ---------- アイコン ----------
 const I = {
@@ -92,6 +93,25 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
     ref.current.style.transform = v ? `translate(${v.x * r}px, ${v.y * r}px)` : '';
   };
 
+  // 指を置いた位置を「今の照準の向き」とみなし、そこからの相対操作にする
+  const relativeAim = (e, R) => {
+    const cur = g() ? g().getAimVec() : { x: 1, y: 0, m: 0.6 };
+    const a = Math.atan2(cur.y, cur.x) || (g() ? g().aimAng : 0);
+    // 中心に近すぎると向きが急に回るので、傾きに下限を設ける
+    const m = Math.max(0.5, Math.min(settings.aimAutoFire ? 0.8 : 1, cur.m));
+    const from = { x: Math.cos(a) * m, y: Math.sin(a) * m };
+    return { cx: e.clientX - from.x * R, cy: e.clientY - from.y * R, R, from, sx: e.clientX, sy: e.clientY, dragged: false };
+  };
+  // 可動範囲を超えたら中心を指に追従させ、逆方向にもすぐ向けられるようにする
+  const dragVec = (a, e) => {
+    const v = stickVec(a, e);
+    if (Math.hypot(e.clientX - a.cx, e.clientY - a.cy) > a.R) {
+      a.cx = e.clientX - v.x * a.R;
+      a.cy = e.clientY - v.y * a.R;
+    }
+    return v;
+  };
+
   // ---------- 移動スティック ----------
   const moveStart = (e, floating) => {
     const s = st.current;
@@ -159,14 +179,16 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     const r = e.currentTarget.getBoundingClientRect();
-    s.aim = { id: e.pointerId, cx: r.left + r.width / 2, cy: r.top + r.height / 2, R: r.width / 2 };
+    s.aim = { id: e.pointerId, ...relativeAim(e, r.width / 2) };
+    setKnob(aimKnob, s.aim.from, CTRL_SIZE.aimStick);
     setPress('aimStick', true);
-    aimUpdate(e);
   };
   const aimUpdate = (e) => {
     const s = st.current;
     if (!s.aim || s.aim.id !== e.pointerId) return;
-    const v = stickVec(s.aim, e);
+    if (!s.aim.dragged && Math.hypot(e.clientX - s.aim.sx, e.clientY - s.aim.sy) < SLOP) return;
+    s.aim.dragged = true;
+    const v = dragVec(s.aim, e);
     setKnob(aimKnob, v, CTRL_SIZE.aimStick);
     const game = g();
     if (!game) return;
@@ -182,7 +204,6 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
     if (!s.aim || s.aim.id !== e.pointerId) return;
     s.aim = null;
     s.aimFire = false;
-    setKnob(aimKnob, null);
     setPress('aimStick', false);
     g() && g().setAim(null);
     syncFire();
@@ -196,7 +217,7 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     const r = e.currentTarget.getBoundingClientRect();
-    s.fire = { id: e.pointerId, cx: r.left + r.width / 2, cy: r.top + r.height / 2, R: r.width * 0.9, dragged: false };
+    s.fire = { id: e.pointerId, sx: e.clientX, sy: e.clientY, R: r.width * 0.9, dragged: false };
     s.fireBtn = true;
     vibrate(settings.vibrate);
     setPress('fire', true);
@@ -205,11 +226,13 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
   const fireMove = (e) => {
     const s = st.current;
     if (!s.fire || s.fire.id !== e.pointerId) return;
-    const dx = e.clientX - s.fire.cx;
-    const dy = e.clientY - s.fire.cy;
-    if (!s.fire.dragged && Math.hypot(dx, dy) < s.fire.R * 0.35) return;
-    s.fire.dragged = true;
-    g() && g().setAim(stickVec(s.fire, e));
+    if (!s.fire.dragged) {
+      if (Math.hypot(e.clientX - s.fire.sx, e.clientY - s.fire.sy) < s.fire.R * 0.2) return;
+      // ドラッグし始めた位置を、今の照準の向きとして扱う
+      Object.assign(s.fire, relativeAim(e, s.fire.R), { dragged: true });
+      return;
+    }
+    g() && g().setAim(dragVec(s.fire, e));
   };
   const fireEnd = (e) => {
     const s = st.current;
@@ -281,6 +304,13 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
       syncSprint();
     },
   );
+
+  // 指を離している間も、ノブは最後の照準の向きを示す
+  useEffect(() => {
+    const game = g();
+    if (editor || !game || st.current.aim || !game.aimLocked) return;
+    setKnob(aimKnob, game.getAimVec(), CTRL_SIZE.aimStick);
+  });
 
   // 画面から消える時に入力を解除
   useEffect(

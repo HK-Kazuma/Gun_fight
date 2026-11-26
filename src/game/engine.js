@@ -53,6 +53,7 @@ export class Game {
     this.aimAng = 0;
     this.aimDist = 5 * T;
     this.aimHold = 0;
+    this.aimLocked = false; // 一度手動で照準したら、その向きを維持する
     this.particles = [];
     this.tracers = [];
     this.lights = [];
@@ -580,6 +581,7 @@ export class Game {
       this.aimAng = Math.atan2(v.y, v.x);
       this.aimDist = (1.8 + m * 5.7) * T;
       this.vAim = v;
+      this.aimLocked = true;
     } else {
       if (this.vAim) this.aimHold = 0.9;
       this.vAim = null;
@@ -592,7 +594,12 @@ export class Game {
     const wy = sy / this.zoom + this.camY;
     this.aimAng = Math.atan2(wy - p.y, wx - p.x);
     this.aimDist = clamp(Math.hypot(wx - p.x, wy - p.y), 1.2 * T, 9 * T);
-    this.aimHold = 1.6;
+    this.aimLocked = true;
+  }
+  // 現在の照準をスティックの傾き（-1〜1）に変換する
+  getAimVec() {
+    const m = clamp((this.aimDist / T - 1.8) / 5.7, 0, 1);
+    return { x: Math.cos(this.aimAng) * m, y: Math.sin(this.aimAng) * m, m };
   }
   setFire(on) {
     if (on && (this.paused || this.ended)) return;
@@ -930,7 +937,7 @@ export class Game {
     if (this.touchMode) {
       // タッチ操作：照準スティックが無ければ移動方向に向く
       this.aimHold = Math.max(0, this.aimHold - rdt);
-      if (!this.vAim && !this.vFire && this.aimHold <= 0 && this.autoFace && p.moving) {
+      if (!this.aimLocked && !this.vAim && !this.vFire && this.aimHold <= 0 && this.autoFace && p.moving) {
         this.aimAng = turnTowards(this.aimAng, Math.atan2(my, mx), rdt * 9);
         this.aimDist += (4.5 * T - this.aimDist) * Math.min(1, rdt * 3);
       }

@@ -199,7 +199,7 @@ export default function SettingsModal({ settings, onChange, onClose, mission, op
             <Toggle label="ダッシュを切り替え式にする" desc="オフにすると押している間だけダッシュ" value={settings.dashToggle} onChange={(v) => set({ dashToggle: v })} />
             <Toggle label="スティックを端まで倒してダッシュ" value={settings.stickDash} onChange={(v) => set({ stickDash: v })} />
             <Toggle label="照準スティックで自動射撃" desc="照準スティックを大きく倒すと撃つ" value={settings.aimAutoFire} onChange={(v) => set({ aimAutoFire: v })} />
-            <Toggle label="移動方向に自動で向く" desc="照準していない時はライトが進行方向を向く" value={settings.autoFace} onChange={(v) => set({ autoFace: v })} />
+            <Toggle label="移動方向に自動で向く" desc="一度照準するまで、ライトが進行方向を向く" value={settings.autoFace} onChange={(v) => set({ autoFace: v })} />
             <Toggle label="タップした場所に照準" desc="ボタン以外の画面をタッチした方向を向く" value={settings.tapAim} onChange={(v) => set({ tapAim: v })} />
             <Toggle label="振動" value={settings.vibrate} onChange={(v) => set({ vibrate: v })} />
           </section>
