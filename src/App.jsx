@@ -7,6 +7,22 @@ import { AchievementsModal, ControlsModal } from './components/Modals.jsx';
 import { ACHIEVEMENTS, applyResult, loadSave } from './game/achievements.js';
 import { MISSIONS } from './game/maps.js';
 import { audio } from './game/audio.js';
+import SettingsModal from './components/Settings.jsx';
+import { loadSettings, saveSettings, resolveTouch } from './game/settings.js';
+
+// スマホではフルスクリーン＋横向き固定を試みる（対応していない端末では何もしない）
+function enterLandscape() {
+  try {
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) {
+      el.requestFullscreen({ navigationUI: 'hide' })
+        .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}))
+        .catch(() => {});
+    }
+  } catch {
+    /* 非対応 */
+  }
+}
 
 export default function App() {
   const [screen, setScreen] = useState('title');
@@ -18,12 +34,19 @@ export default function App() {
   const [unlocked, setUnlocked] = useState([]);
   const [runKey, setRunKey] = useState(0);
   const [muted, setMuted] = useState(false);
+  const [settings, setSettingsState] = useState(() => loadSettings());
+  const setSettings = useCallback((s) => {
+    setSettingsState(s);
+    saveSettings(s);
+  }, []);
+  const touch = resolveTouch(settings);
 
   const deploy = useCallback(() => {
     audio.init();
+    if (touch) enterLandscape();
     setRunKey((k) => k + 1);
     setScreen('game');
-  }, []);
+  }, [touch]);
 
   const onEnd = useCallback(
     (r) => {
@@ -57,7 +80,7 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className={`app ${touch ? 'is-touch' : ''}`}>
       {screen === 'title' && (
         <Title
           onStart={() => {
@@ -66,6 +89,7 @@ export default function App() {
           }}
           onAchievements={() => setModal('ach')}
           onControls={() => setModal('ctrl')}
+          onSettings={() => setModal('settings')}
           muted={muted}
           onToggleMute={toggleMute}
           unlockedCount={Object.keys(save.achievements).length}
@@ -92,6 +116,8 @@ export default function App() {
           onEnd={onEnd}
           onQuit={() => setScreen('brief')}
           onRestart={deploy}
+          settings={settings}
+          onSettings={setSettings}
         />
       )}
       {screen === 'result' && result && (
@@ -108,7 +134,8 @@ export default function App() {
         />
       )}
       {modal === 'ach' && <AchievementsModal save={save} onClose={() => setModal(null)} />}
-      {modal === 'ctrl' && <ControlsModal onClose={() => setModal(null)} />}
+      {modal === 'ctrl' && <ControlsModal touch={touch} onClose={() => setModal(null)} />}
+      {modal === 'settings' && <SettingsModal settings={settings} onChange={setSettings} onClose={() => setModal(null)} currentTouch={touch} />}
     </div>
   );
 }

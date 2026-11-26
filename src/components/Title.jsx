@@ -1,7 +1,7 @@
 import TitleBackdrop from './TitleBackdrop.jsx';
 import { OPERATORS } from '../game/operators.js';
 
-export default function Title({ onStart, onAchievements, onControls, muted, onToggleMute, unlockedCount, totalAch }) {
+export default function Title({ onStart, onAchievements, onControls, onSettings, muted, onToggleMute, unlockedCount, totalAch }) {
   return (
     <div className="screen title-screen">
       <TitleBackdrop />
@@ -21,13 +21,16 @@ export default function Title({ onStart, onAchievements, onControls, muted, onTo
         <p className="tagline">撃つか、投降させるか。判断は、お前の一瞬に委ねられる。</p>
         <div className="title-menu">
           <button className="btn btn-primary" onClick={onStart}>
-            <span className="btn-key">ENTER</span> DEPLOY<small>出動する</small>
+            <span className="btn-key hide-touch">ENTER</span> DEPLOY<small>出動する</small>
           </button>
           <button className="btn" onClick={onAchievements}>
             ACHIEVEMENTS<small>実績 {unlockedCount}/{totalAch}</small>
           </button>
           <button className="btn" onClick={onControls}>
             CONTROLS<small>操作方法</small>
+          </button>
+          <button className="btn" onClick={onSettings}>
+            SETTINGS<small>設定・レイアウト</small>
           </button>
           <button className="btn btn-ghost" onClick={onToggleMute}>
             SOUND {muted ? 'OFF' : 'ON'}

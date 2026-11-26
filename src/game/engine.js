@@ -42,6 +42,17 @@ export class Game {
     this.endTimer = -1;
     this.keys = {};
     this.mouse = { x: 0, y: 0, down: false };
+    // タッチ操作用の仮想入力
+    this.touchMode = !!opts.touch;
+    this.zoomMul = opts.zoomMul || 1;
+    this.autoFace = opts.autoFace !== false;
+    this.vMove = null;
+    this.vAim = null;
+    this.vFire = false;
+    this.vSprint = false;
+    this.aimAng = 0;
+    this.aimDist = 5 * T;
+    this.aimHold = 0;
     this.particles = [];
     this.tracers = [];
     this.lights = [];
@@ -462,7 +473,8 @@ export class Game {
     this.darkCanvas.width = this.canvas.width;
     this.darkCanvas.height = this.canvas.height;
     this.dctx = this.darkCanvas.getContext('2d');
-    this.zoom = clamp(Math.min(this.vw / 1280, this.vh / 720), 0.9, 1.6);
+    const base = clamp(Math.min(this.vw / 1280, this.vh / 720), this.touchMode ? 0.68 : 0.9, 1.6);
+    this.zoom = base * this.zoomMul;
     if (!this.cam) {
       this.cam = { x: this.player.x, y: this.player.y };
       this.camX = this.cam.x - this.vw / this.zoom / 2;
@@ -490,11 +502,13 @@ export class Game {
       this.keys[e.code] = false;
     };
     this.onMouseMove = (e) => {
+      if (this.touchMode) return;
       const r = this.canvas.getBoundingClientRect();
       this.mouse.x = e.clientX - r.left;
       this.mouse.y = e.clientY - r.top;
     };
     this.onMouseDown = (e) => {
+      if (this.touchMode) return;
       if (e.button === 0) this.mouse.down = true;
       if (e.button === 2) this.useAbility();
     };
@@ -523,6 +537,9 @@ export class Game {
     this.paused = p;
     this.keys = {};
     this.mouse.down = false;
+    this.vMove = null;
+    this.vAim = null;
+    this.vFire = false;
     this.opts.onPause && this.opts.onPause(p);
   }
 
@@ -536,6 +553,54 @@ export class Game {
     this.canvas.removeEventListener('contextmenu', this.onContext);
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('blur', this.onBlur);
+  }
+
+  // ---------------- 仮想入力（タッチ操作） ----------------
+  setOptions(o) {
+    if (o.touch !== undefined) this.touchMode = !!o.touch;
+    if (o.zoomMul !== undefined) this.zoomMul = o.zoomMul;
+    if (o.autoFace !== undefined) this.autoFace = o.autoFace;
+    this.resize();
+  }
+  // キー入力をそのまま再現する（R / F / Q / E など）
+  press(code) {
+    this.onKeyDown({ code, repeat: false, preventDefault() {} });
+  }
+  release(code) {
+    this.onKeyUp({ code });
+  }
+  // 移動スティック：x, y は -1〜1（null で解除）
+  setMove(v) {
+    this.vMove = v;
+  }
+  // 照準スティック：x, y は -1〜1。長さで照準距離が変わる（null で解除、向きは維持）
+  setAim(v) {
+    if (v && Math.hypot(v.x, v.y) > 0.15) {
+      const m = Math.min(1, Math.hypot(v.x, v.y));
+      this.aimAng = Math.atan2(v.y, v.x);
+      this.aimDist = (1.8 + m * 5.7) * T;
+      this.vAim = v;
+    } else {
+      if (this.vAim) this.aimHold = 0.9;
+      this.vAim = null;
+    }
+  }
+  // 画面上の点（キャンバス座標）に照準を合わせる
+  aimAtScreen(sx, sy) {
+    const p = this.player;
+    const wx = sx / this.zoom + this.camX;
+    const wy = sy / this.zoom + this.camY;
+    this.aimAng = Math.atan2(wy - p.y, wx - p.x);
+    this.aimDist = clamp(Math.hypot(wx - p.x, wy - p.y), 1.2 * T, 9 * T);
+    this.aimHold = 1.6;
+  }
+  setFire(on) {
+    if (on && (this.paused || this.ended)) return;
+    this.vFire = on;
+    if (!on) this.aimHold = Math.max(this.aimHold, 0.9);
+  }
+  setSprint(on) {
+    this.vSprint = on;
   }
 
   get mouseWorld() {
@@ -845,17 +910,33 @@ export class Game {
     const k = this.keys;
     let mx = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
     let my = (k.KeyS || k.ArrowDown ? 1 : 0) - (k.KeyW || k.ArrowUp ? 1 : 0);
+    let analog = 1;
+    if (this.vMove && !mx && !my) {
+      mx = this.vMove.x;
+      my = this.vMove.y;
+      analog = clamp(Math.hypot(mx, my) * 1.4, 0.35, 1);
+    }
     const len = Math.hypot(mx, my);
-    const sprint = !!(k.ShiftLeft || k.ShiftRight);
+    const sprint = !!(k.ShiftLeft || k.ShiftRight || this.vSprint);
     p.sprint = sprint && len > 0;
     if (len > 0) {
       mx /= len;
       my /= len;
-      const sp = p.op.speed * (sprint ? 1.45 : 1) * (this.interactProg > 0 ? 0.4 : 1);
+      const sp = p.op.speed * analog * (sprint ? 1.45 : 1) * (this.interactProg > 0 ? 0.4 : 1);
       this.moveEnt(p, mx * sp * dt, my * sp * dt);
       p.moving = true;
       p.walkT += dt * (sprint ? 14 : 10);
     } else p.moving = false;
+    if (this.touchMode) {
+      // タッチ操作：照準スティックが無ければ移動方向に向く
+      this.aimHold = Math.max(0, this.aimHold - rdt);
+      if (!this.vAim && !this.vFire && this.aimHold <= 0 && this.autoFace && p.moving) {
+        this.aimAng = turnTowards(this.aimAng, Math.atan2(my, mx), rdt * 9);
+        this.aimDist += (4.5 * T - this.aimDist) * Math.min(1, rdt * 3);
+      }
+      this.mouse.x = (p.x + Math.cos(this.aimAng) * this.aimDist - this.camX) * this.zoom;
+      this.mouse.y = (p.y + Math.sin(this.aimAng) * this.aimDist - this.camY) * this.zoom;
+    }
     const mw = this.mouseWorld;
     p.angle = Math.atan2(mw.y - p.y, mw.x - p.x);
 
@@ -869,7 +950,7 @@ export class Game {
         audio.reloadDone();
       }
     }
-    if (this.mouse.down && p.fireCd <= 0 && p.reloadT <= 0) {
+    if ((this.mouse.down || this.vFire) && p.fireCd <= 0 && p.reloadT <= 0) {
       if (p.mag > 0) this.playerShoot();
       else {
         audio.empty();

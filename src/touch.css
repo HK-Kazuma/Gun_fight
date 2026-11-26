@@ -1,0 +1,743 @@
+/* =========================================================
+   HUD 配置レイヤー・タッチ操作・レイアウト編集・設定画面
+   ========================================================= */
+
+/* ---------- HUD の配置レイヤー ---------- */
+.hud-layer {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: max(16px, env(safe-area-inset-left));
+  pointer-events: none;
+}
+.placed {
+  position: absolute;
+  width: max-content;
+  pointer-events: none;
+}
+.placed.interactive {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tc-anchor {
+  display: none;
+}
+.kbd.round {
+  border-radius: 50%;
+  border-bottom-width: 1px;
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* ---------- タッチ操作 ---------- */
+.touch-mode,
+.touch-mode * {
+  -webkit-touch-callout: none;
+}
+.game-screen.touch-mode {
+  touch-action: none;
+}
+.tc-zones {
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+  touch-action: none;
+}
+.tc-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.tc-zone.left {
+  left: 0;
+  width: 45%;
+}
+.tc-zone.right {
+  right: 0;
+  width: 55%;
+}
+
+/* スティック */
+.tc-stick {
+  position: relative;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(10, 13, 18, 0.25) 0%, rgba(10, 13, 18, 0.55) 70%);
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.5), 0 0 0 6px rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.tc-stick::before {
+  content: '';
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.tc-stick.on {
+  border-color: rgba(255, 179, 71, 0.8);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.5), 0 0 22px rgba(255, 140, 40, 0.3);
+}
+.tc-stick.aim.on {
+  border-color: rgba(255, 90, 60, 0.85);
+}
+.tc-stick-label {
+  position: absolute;
+  bottom: 9%;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.4);
+}
+.tc-knob {
+  width: 36%;
+  height: 36%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), rgba(190, 200, 212, 0.28) 60%, rgba(120, 130, 145, 0.25));
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+.tc-stick.on .tc-knob {
+  background: radial-gradient(circle at 35% 30%, #ffd7a0, rgba(255, 140, 40, 0.65) 65%);
+  border-color: #ffd7a0;
+}
+.tc-stick.aim.on .tc-knob {
+  background: radial-gradient(circle at 35% 30%, #ffb0a0, rgba(255, 70, 40, 0.7) 65%);
+  border-color: #ffb0a0;
+}
+.tc-knob svg {
+  width: 60%;
+  height: 60%;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* 丸ボタン */
+.tc-btn {
+  position: relative;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: radial-gradient(circle at 50% 35%, rgba(40, 48, 60, 0.75), rgba(10, 13, 18, 0.8));
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #f1f4f8;
+  transition: transform 0.08s, background 0.12s, border-color 0.12s, opacity 0.2s;
+}
+.tc-btn svg {
+  width: 42%;
+  height: 42%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tc-btn svg .fill,
+.tc-knob svg .fill {
+  fill: currentColor;
+}
+.tc-btn.on {
+  transform: scale(0.92);
+  background: radial-gradient(circle at 50% 35%, rgba(255, 160, 70, 0.75), rgba(150, 60, 10, 0.75));
+  border-color: #ffd08a;
+}
+.tc-btn.dim {
+  opacity: 0.55;
+}
+.tc-label {
+  font-size: 9px;
+  letter-spacing: 0;
+  font-weight: 700;
+  font-family: var(--cond), var(--jp);
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  max-width: 96%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tc-letter {
+  font-size: 22px;
+  line-height: 1;
+}
+.tc-sub {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.85);
+}
+.tc-btn.fire {
+  border: 3px solid rgba(255, 120, 90, 0.85);
+  background: radial-gradient(circle at 50% 35%, rgba(255, 90, 60, 0.55), rgba(90, 14, 6, 0.8));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 22px rgba(255, 60, 30, 0.3);
+}
+.tc-btn.fire svg {
+  width: 46%;
+  height: 46%;
+}
+.tc-btn.fire.on {
+  background: radial-gradient(circle at 50% 35%, rgba(255, 150, 110, 0.85), rgba(200, 40, 20, 0.85));
+  border-color: #ffd0c0;
+}
+.tc-btn.alert {
+  border-color: var(--red);
+  animation: blink 0.6s infinite;
+}
+.tc-btn.latched {
+  border-color: var(--amber);
+  box-shadow: 0 0 18px rgba(255, 179, 71, 0.55);
+}
+.tc-btn.small svg {
+  width: 46%;
+  height: 46%;
+}
+.tc-btn.interact.ready {
+  border-color: var(--amber);
+  color: var(--amber);
+  box-shadow: 0 0 20px rgba(255, 179, 71, 0.45);
+  animation: pulse-btn 1s infinite alternate;
+}
+@keyframes pulse-btn {
+  to {
+    box-shadow: 0 0 6px rgba(255, 179, 71, 0.2);
+  }
+}
+.tc-btn.ability {
+  border-color: transparent;
+}
+.tc-btn.ability.ready {
+  color: var(--op);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--op) 50%, transparent);
+}
+.tc-btn.ability.live {
+  animation: pulse-btn 0.5s infinite alternate;
+}
+.tc-btn .tc-ring {
+  position: absolute;
+  inset: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+.tc-ring circle {
+  fill: none;
+  stroke-width: 5;
+}
+.tc-ring-bg {
+  stroke: rgba(255, 255, 255, 0.12);
+}
+.tc-ring-fg {
+  stroke-dasharray: 295.3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.1s linear;
+}
+.tc-ring.amber .tc-ring-fg {
+  stroke: var(--amber);
+}
+.tc-ring.op .tc-ring-fg {
+  stroke: var(--op);
+}
+
+/* 縦向きの時の案内 */
+.rotate-hint {
+  display: none;
+}
+@media (orientation: portrait) {
+  .touch-mode .rotate-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    background: var(--ink);
+    font-family: var(--jp);
+    font-size: 15px;
+    letter-spacing: 0.1em;
+  }
+}
+.rotate-icon {
+  width: 46px;
+  height: 78px;
+  border: 3px solid var(--amber);
+  border-radius: 8px;
+  animation: rotate-phone 1.8s ease-in-out infinite;
+}
+@keyframes rotate-phone {
+  40%,
+  100% {
+    transform: rotate(-90deg);
+  }
+}
+
+/* ---------- レイアウト編集 ---------- */
+.layout-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  cursor: default;
+  touch-action: none;
+  background:
+    linear-gradient(rgba(80, 160, 255, 0.05) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(90deg, rgba(80, 160, 255, 0.05) 1px, transparent 1px) 0 0 / 40px 40px,
+    radial-gradient(ellipse at 50% 45%, #1a2430, #07090c 75%);
+}
+.layout-editor.over-game {
+  background:
+    linear-gradient(rgba(80, 160, 255, 0.06) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(90deg, rgba(80, 160, 255, 0.06) 1px, transparent 1px) 0 0 / 40px 40px,
+    rgba(3, 4, 6, 0.45);
+}
+.le-guides i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed rgba(255, 179, 71, 0.18);
+}
+.le-guides i.h {
+  top: auto;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 0;
+  border-left: none;
+  border-top: 1px dashed rgba(255, 179, 71, 0.18);
+}
+.placed.editing {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  outline: 1px dashed rgba(255, 255, 255, 0.35);
+  outline-offset: 3px;
+}
+.placed.editing * {
+  pointer-events: none !important;
+}
+.placed.editing:active {
+  cursor: grabbing;
+}
+.placed.sel {
+  outline: 2px solid var(--amber);
+  background: rgba(255, 179, 71, 0.08);
+  z-index: 2;
+}
+.placed-tag {
+  position: absolute;
+  left: 0;
+  top: -18px;
+  font-family: var(--jp);
+  font-size: 10px;
+  white-space: nowrap;
+  padding: 1px 5px;
+  background: rgba(6, 8, 11, 0.85);
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 0;
+}
+.placed.editing:hover .placed-tag,
+.placed.sel .placed-tag {
+  opacity: 1;
+}
+.placed.sel .placed-tag {
+  background: var(--amber);
+  color: #160800;
+  font-weight: 700;
+}
+.le-panel {
+  position: absolute;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 24px));
+  max-height: 46vh;
+  overflow: auto;
+  background: rgba(12, 16, 22, 0.94);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--fire);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 5;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  touch-action: auto;
+}
+.le-panel.top {
+  bottom: auto;
+  top: max(10px, env(safe-area-inset-top));
+}
+.le-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.le-head b {
+  letter-spacing: 0.1em;
+  font-family: var(--jp);
+  font-size: 14px;
+}
+.le-head span {
+  flex: 1;
+  font-family: var(--jp);
+  font-size: 11px;
+  color: var(--muted);
+}
+.le-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+.le-chips {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.le-chips button {
+  flex: none;
+  font-family: var(--jp);
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+.le-chips button.active {
+  border-color: var(--amber);
+  background: rgba(255, 179, 71, 0.2);
+  color: #ffe0b0;
+}
+.le-sel-name {
+  font-family: var(--jp);
+  font-size: 13px;
+  color: var(--amber);
+}
+.le-sel,
+.le-global {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.le-sel .btn {
+  align-self: flex-start;
+}
+.le-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---------- 設定 ---------- */
+.settings-modal h3 {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: var(--amber);
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+}
+.modal-head .set-now {
+  font-family: var(--jp);
+  font-size: 12px;
+  color: var(--muted);
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--line);
+  font-family: var(--jp);
+  font-size: 13px;
+  width: 100%;
+}
+.set-label {
+  flex: 1;
+  text-align: left;
+}
+.set-label small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.set-row.slider .set-label {
+  flex: 0 0 120px;
+}
+.set-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--fire);
+  min-width: 80px;
+  height: 22px;
+}
+.set-val {
+  min-width: 64px;
+  text-align: right;
+  font-family: var(--cond);
+  font-size: 13px;
+  color: #ffe0b0;
+}
+.set-row.toggle {
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+}
+.switch {
+  flex: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: #2a323d;
+  position: relative;
+  transition: background 0.15s;
+}
+.switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #cfd6de;
+  transition: transform 0.15s;
+}
+.set-row.toggle.on .switch {
+  background: var(--fire);
+}
+.set-row.toggle.on .switch i {
+  transform: translateX(18px);
+  background: #fff;
+}
+.segment {
+  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.segment button {
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  font-family: var(--jp);
+  font-size: 12px;
+  cursor: pointer;
+}
+.segment button.active {
+  background: var(--fire);
+  color: #160800;
+  font-weight: 700;
+}
+.set-note {
+  margin: 0 0 10px;
+  font-family: var(--jp);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.set-btns {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- タッチ端末向けの調整 ---------- */
+.is-touch .hide-touch {
+  display: none;
+}
+.is-touch .brief-legend.hide-touch {
+  display: block;
+  visibility: hidden;
+}
+.is-touch .btn:hover {
+  transform: none;
+}
+.is-touch button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* スマホ横画面など、高さが小さい画面 */
+@media (max-height: 540px) {
+  .credit-row {
+    top: 10px;
+    font-size: 11px;
+  }
+  .network-tag {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .logo {
+    font-size: clamp(40px, 9vw, 72px);
+  }
+  .tagline {
+    font-size: 12px;
+    margin: 8px 0 12px;
+  }
+  .title-menu {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 12px;
+  }
+  .title-menu .btn {
+    font-size: 14px;
+    padding: 9px 14px;
+  }
+  .briefing-screen {
+    padding: 10px max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left));
+    overflow-y: auto;
+  }
+  .brief-header {
+    margin-bottom: 8px;
+  }
+  .brief-header .btn {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  .brief-title span {
+    font-size: 18px;
+  }
+  .brief-grid {
+    flex: none;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) minmax(0, 1.3fr);
+    gap: 10px;
+  }
+  .panel {
+    padding: 10px;
+    overflow: visible;
+  }
+  .mission-card {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+  .map-preview {
+    height: 110px;
+  }
+  .intel-stats {
+    gap: 4px;
+    margin: 8px 0;
+  }
+  .intel-stats b {
+    font-size: 16px;
+  }
+  .portrait {
+    height: 70px;
+  }
+  .op-name {
+    font-size: 13px;
+  }
+  .brief-footer {
+    margin-top: 10px;
+  }
+  .deploy {
+    font-size: 18px;
+    padding: 10px 28px;
+  }
+  .mi-code {
+    font-size: 34px;
+  }
+  .result-screen {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 10px 0;
+  }
+  .result-box {
+    padding: 14px 18px;
+  }
+  .rb-head h1 {
+    font-size: 30px;
+  }
+  .rank {
+    width: 84px;
+    height: 84px;
+    font-size: 58px;
+  }
+  .rb-body {
+    margin: 12px 0;
+    gap: 16px;
+  }
+  .rb-actions {
+    flex-wrap: wrap;
+  }
+  .rb-actions .btn {
+    font-size: 14px;
+    padding: 9px 14px;
+  }
+  .modal {
+    max-height: 94vh;
+    padding: 12px 16px;
+    gap: 10px;
+    width: min(900px, 96vw);
+  }
+  .pause-box {
+    width: min(360px, 80vw);
+    gap: 6px;
+  }
+  .pause-box h2 {
+    font-size: 28px;
+    margin-bottom: 4px;
+  }
+  .pause-box .btn {
+    padding: 8px 18px;
+    font-size: 15px;
+  }
+  .pause-tip {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+  .settings-grid {
+    gap: 16px;
+  }
+  .le-panel {
+    max-height: 62vh;
+    width: min(500px, calc(100vw - 24px));
+    padding: 6px 12px;
+    gap: 4px;
+  }
+  .le-panel .set-row {
+    padding: 2px 0;
+    font-size: 12px;
+  }
+  .le-head b {
+    font-size: 13px;
+  }
+  .le-panel .btn.small {
+    padding: 6px 10px;
+  }
+  .briefing-screen > .brief-footer {
+    position: sticky;
+    bottom: -12px;
+    padding: 8px 0 12px;
+    background: linear-gradient(transparent, rgba(6, 8, 11, 0.9) 40%);
+    z-index: 2;
+  }
+}
+@media (max-width: 720px) {
+  .settings-grid,
+  .controls-grid,
+  .ach-grid {
+    grid-template-columns: 1fr;
+  }
+}

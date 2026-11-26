@@ -588,9 +588,6 @@ button {
 }
 
 .hud-tl {
-  position: absolute;
-  top: 18px;
-  left: 20px;
   pointer-events: none;
 }
 .hud-mission {
@@ -647,10 +644,6 @@ button {
   }
 }
 .hud-top {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
   pointer-events: none;
   text-align: center;
 }
@@ -678,9 +671,6 @@ button {
   animation: blink 0.5s infinite;
 }
 .hud-tr {
-  position: absolute;
-  top: 16px;
-  right: 20px;
   text-align: right;
   pointer-events: none;
 }
@@ -696,6 +686,7 @@ button {
   color: var(--muted);
 }
 .minimap {
+  margin-left: auto;
   width: 220px;
   height: 110px;
   background: rgba(6, 8, 11, 0.72);
@@ -703,11 +694,12 @@ button {
   display: block;
 }
 .radio-feed {
-  position: absolute;
-  left: 20px;
-  bottom: 140px;
   width: 360px;
+  min-height: 34px;
   pointer-events: none;
+}
+.radio-feed.static .radio-msg {
+  animation: none;
 }
 .radio-msg {
   display: flex;
@@ -746,9 +738,6 @@ button {
   }
 }
 .hud-bl {
-  position: absolute;
-  left: 20px;
-  bottom: 44px;
   width: 300px;
   pointer-events: none;
 }
@@ -795,15 +784,6 @@ button {
 .hp-num small {
   color: var(--muted);
   font-size: 12px;
-}
-.hud-br {
-  position: absolute;
-  right: 20px;
-  bottom: 44px;
-  display: flex;
-  align-items: flex-end;
-  gap: 22px;
-  pointer-events: none;
 }
 .ability {
   position: relative;
@@ -918,10 +898,7 @@ button {
   animation: blink 0.6s infinite;
 }
 .interact {
-  position: absolute;
-  left: 50%;
-  bottom: 140px;
-  transform: translateX(-50%);
+  max-width: 420px;
   background: rgba(6, 8, 11, 0.78);
   border: 1px solid rgba(255, 179, 71, 0.6);
   padding: 8px 16px;
@@ -945,10 +922,6 @@ button {
   background: var(--amber);
 }
 .key-hints {
-  position: absolute;
-  bottom: 10px;
-  left: 0;
-  right: 0;
   display: flex;
   justify-content: center;
   gap: 18px;

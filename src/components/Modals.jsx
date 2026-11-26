@@ -45,7 +45,19 @@ const CONTROLS = [
   ['ESC', 'ポーズ'],
 ];
 
-export function ControlsModal({ onClose }) {
+const TOUCH_CONTROLS = [
+  ['左スティック', '移動（画面左側のどこを触っても出せる）'],
+  ['DASH', 'ダッシュ（タップで切り替え）'],
+  ['照準スティック', '照準・ライトの向き（画面右側のタップでも照準）'],
+  ['射撃ボタン', '射撃（押したままドラッグで照準も動かせる）'],
+  ['RELOAD', 'リロード'],
+  ['投降勧告', '容疑者に投降を呼びかける'],
+  ['E', 'ドア突破 ／ 長押しで拘束・人質救出・爆弾解除'],
+  ['アビリティ', 'オペレーター固有アビリティ'],
+  ['⏸', 'ポーズ（設定からボタン配置を変更できる）'],
+];
+
+export function ControlsModal({ onClose, touch }) {
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -54,7 +66,7 @@ export function ControlsModal({ onClose }) {
         </div>
         <div className="controls-grid">
           <div>
-            {CONTROLS.map(([k, v]) => (
+            {(touch ? TOUCH_CONTROLS : CONTROLS).map(([k, v]) => (
               <div key={k} className="ctrl-row">
                 <span className="kbd wide">{k}</span>
                 <span>{v}</span>

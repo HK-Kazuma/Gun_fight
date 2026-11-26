@@ -109,7 +109,7 @@ export default function Briefing({ missionIndex, setMissionIndex, opId, setOpId,
           <span>MISSION BRIEFING</span>
           <small>作戦と出動する隊員を選択</small>
         </div>
-        <div className="brief-legend">ENTER で出動</div>
+        <div className="brief-legend hide-touch">ENTER で出動</div>
       </header>
       <div className="brief-grid">
         <section className="panel missions">
