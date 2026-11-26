@@ -592,30 +592,81 @@
 
 /* スマホ横画面など、高さが小さい画面 */
 @media (max-height: 540px) {
+  /* タイトル：左に文字とメニュー、右に隊員（背景側で配置） */
   .credit-row {
-    top: 10px;
-    font-size: 11px;
+    top: max(10px, env(safe-area-inset-top));
+    left: auto;
+    right: max(18px, env(safe-area-inset-right));
+    gap: 2.4vw;
+    font-size: 10px;
+    letter-spacing: 0.26em;
+  }
+  .title-block {
+    left: max(22px, env(safe-area-inset-left));
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    width: min(48vw, 440px);
+    align-items: flex-start;
+    transform: translateY(-50%);
+    animation-name: rise-compact;
+  }
+  @keyframes rise-compact {
+    from {
+      opacity: 0;
+      transform: translate(-24px, -50%);
+    }
   }
   .network-tag {
-    font-size: 11px;
-    margin-bottom: 4px;
+    font-size: 10px;
+    letter-spacing: 0.5em;
+    margin-bottom: 6px;
+  }
+  .title-rule {
+    width: 100%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.75), transparent);
   }
   .logo {
-    font-size: clamp(40px, 9vw, 72px);
+    font-size: clamp(30px, 5.6vw, 58px);
+    margin: 4px 0 2px;
+    white-space: nowrap;
   }
   .tagline {
-    font-size: 12px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
     margin: 8px 0 12px;
   }
   .title-menu {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    padding: 0 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
   }
   .title-menu .btn {
-    font-size: 14px;
-    padding: 9px 14px;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    padding: 7px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+  }
+  .title-menu .btn small {
+    font-size: 10px;
+  }
+  .title-menu .btn-primary {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    font-size: 16px;
+    padding: 10px;
+  }
+  .title-menu .btn-ghost {
+    grid-column: 1 / -1;
+    justify-self: start;
+    padding: 4px 2px;
+    font-size: 11px;
   }
   .briefing-screen {
     padding: 10px max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left));

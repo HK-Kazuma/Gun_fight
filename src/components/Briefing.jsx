@@ -1,11 +1,32 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MISSIONS } from '../game/maps.js';
 import { OPERATORS } from '../game/operators.js';
 import { drawTrooper } from '../game/silhouette.js';
 import TitleBackdrop from './TitleBackdrop.jsx';
 
+// 画面の回転やリサイズで表示サイズが変わったら、キャンバスを描き直すためのキー
+function useViewportKey() {
+  const [key, setKey] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const bump = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setKey((k) => k + 1));
+    };
+    window.addEventListener('resize', bump);
+    window.addEventListener('orientationchange', bump);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', bump);
+      window.removeEventListener('orientationchange', bump);
+    };
+  }, []);
+  return key;
+}
+
 function Portrait({ op, active }) {
   const ref = useRef(null);
+  const vk = useViewportKey();
   useEffect(() => {
     const cv = ref.current;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -24,12 +45,13 @@ function Portrait({ op, active }) {
     ctx.fillRect(0, 0, w, h);
     const head = op.id === 'reyes' ? 'hair' : op.head;
     drawTrooper(ctx, w / 2, h * 0.42, h / 330, { head, accent: op.color, rifle: op.id === 'holt' ? false : 'right', rim: active ? '255,160,70' : '200,110,50' });
-  }, [op, active]);
+  }, [op, active, vk]);
   return <canvas ref={ref} className="portrait" />;
 }
 
 function MapPreview({ mission }) {
   const ref = useRef(null);
+  const vk = useViewportKey();
   useEffect(() => {
     const cv = ref.current;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -78,7 +100,7 @@ function MapPreview({ mission }) {
         }
       }),
     );
-  }, [mission]);
+  }, [mission, vk]);
   return <canvas ref={ref} className="map-preview" />;
 }
 

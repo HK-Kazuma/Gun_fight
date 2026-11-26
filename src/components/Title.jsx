@@ -11,6 +11,7 @@ export default function Title({ onStart, onAchievements, onControls, onSettings,
         ))}
         <span>TACTICAL RESPONSE UNIT</span>
       </div>
+      {!soundReady && <div className="sound-hint">CLICK / TAP TO ENABLE SOUND</div>}
       <div className="title-block">
         <div className="network-tag">NIGHT OPERATIONS</div>
         <div className="title-rule" />
@@ -19,7 +20,6 @@ export default function Title({ onStart, onAchievements, onControls, onSettings,
         </h1>
         <div className="title-rule" />
         <p className="tagline">撃つか、投降させるか。判断は、お前の一瞬に委ねられる。</p>
-        {!soundReady && <div className="sound-hint">CLICK / TAP TO ENABLE SOUND</div>}
         <div className="title-menu">
           <button className="btn btn-primary" onClick={onStart}>
             <span className="btn-key hide-touch">ENTER</span> DEPLOY<small>出動する</small>

@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { drawTrooper } from '../game/silhouette.js';
 
 // タイトル画面の背景: 燃える市街地と隊員のシルエット
+// 高さが小さい画面（スマホ横画面）では、左に文字・右に隊員を置く横長用の構図にする
+export const COMPACT_HEIGHT = 540;
 export default function TitleBackdrop({ dim = 0 }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -10,6 +12,7 @@ export default function TitleBackdrop({ dim = 0 }) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let w = 0;
     let h = 0;
+    let compact = false;
     let city = null;
     const mouse = { x: 0.5, y: 0.5 };
     const rand = (a, b) => a + Math.random() * (b - a);
@@ -20,6 +23,7 @@ export default function TitleBackdrop({ dim = 0 }) {
     const build = () => {
       w = cv.clientWidth;
       h = cv.clientHeight;
+      compact = h <= COMPACT_HEIGHT;
       cv.width = w * dpr;
       cv.height = h * dpr;
       city = document.createElement('canvas');
@@ -78,6 +82,8 @@ export default function TitleBackdrop({ dim = 0 }) {
     let t = 0;
     let flash = 0;
     const frame = (now) => {
+      // 回転などで表示サイズが変わったら作り直す（古い解像度のまま引き延ばされるのを防ぐ）
+      if (cv.clientWidth !== w || cv.clientHeight !== h) build();
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
       t += dt;
@@ -128,8 +134,20 @@ export default function TitleBackdrop({ dim = 0 }) {
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, w, h);
       }
-      // 隊員
-      const s = Math.min(h / 950, w / 1500);
+      // スマホ横画面：左側の文字を読みやすくするため暗くする
+      if (compact) {
+        const lg = ctx.createLinearGradient(0, 0, w * 0.62, 0);
+        lg.addColorStop(0, 'rgba(4,5,7,0.82)');
+        lg.addColorStop(0.6, 'rgba(4,5,7,0.45)');
+        lg.addColorStop(1, 'rgba(4,5,7,0)');
+        ctx.fillStyle = lg;
+        ctx.fillRect(0, 0, w, h);
+      }
+      // 隊員：PC は画面全体、スマホ横画面は右側の枠に比率を保って並べる
+      const fw = compact ? Math.min(w * 0.56, h * 1.5) : w;
+      const fx0 = compact ? w * 0.71 - fw / 2 : 0;
+      const fy = compact ? -0.03 : 0;
+      const s = compact ? Math.min(h / 900, fw / 1250) : Math.min(h / 950, w / 1500);
       const tx = (mouse.x - 0.5) * 26;
       const ty = (mouse.y - 0.5) * 12;
       const breath = Math.sin(t * 1.2) * 2;
@@ -142,7 +160,7 @@ export default function TitleBackdrop({ dim = 0 }) {
         { x: 0.75, y: 0.47, s: 1.06, head: 'helmet', rifle: 'right', d: 1 },
         { x: 0.5, y: 0.5, s: 1.22, head: 'cap', accent: '#8dff6a', rifle: 'right', d: 1.25 },
       ];
-      for (const q of squad) drawTrooper(ctx, q.x * w + tx * q.d, q.y * h + ty * q.d + breath * q.d, s * q.s, { head: q.head, accent: q.accent, rifle: q.rifle, rim: rimCol });
+      for (const q of squad) drawTrooper(ctx, fx0 + q.x * fw + tx * q.d, (q.y + fy) * h + ty * q.d + breath * q.d, s * q.s, { head: q.head, accent: q.accent, rifle: q.rifle, rim: rimCol });
       // 前景の暗転
       const fg = ctx.createLinearGradient(0, h * 0.55, 0, h);
       fg.addColorStop(0, 'rgba(5,6,8,0)');
@@ -200,10 +218,12 @@ export default function TitleBackdrop({ dim = 0 }) {
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('resize', build);
+    window.addEventListener('orientationchange', build);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('resize', build);
+      window.removeEventListener('orientationchange', build);
     };
   }, [dim]);
   return <canvas ref={ref} className="backdrop" />;
