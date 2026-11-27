@@ -504,7 +504,9 @@ export class Game {
     this.darkCanvas.width = this.canvas.width;
     this.darkCanvas.height = this.canvas.height;
     this.dctx = this.darkCanvas.getContext('2d');
-    const base = clamp(Math.min(this.vw / 1280, this.vh / 720), this.touchMode ? 0.68 : 0.9, 1.6);
+    // スマホは画面が小さく、キャラクターや的が見づらいので、フィールドごと拡大して映す
+    const fit = Math.min(this.vw / 1280, this.vh / 720);
+    const base = this.touchMode ? clamp(fit * 1.2, 0.82, 1.6) : clamp(fit, 0.9, 1.6);
     this.zoom = base * this.zoomMul;
     if (!this.cam) {
       this.cam = { x: this.player.x, y: this.player.y };
@@ -891,8 +893,8 @@ export class Game {
       }
     }
 
-    // カメラ
-    const look = 0.22;
+    // カメラ（スマホは映る範囲が狭いぶん、照準の方向をより先まで映す）
+    const look = this.touchMode ? 0.45 : 0.22;
     const z = this.zoom;
     const vwW = this.vw / z;
     const vhW = this.vh / z;
@@ -3219,6 +3221,12 @@ export class Game {
     } else if (this.objectives().allDone) targets.push({ x: this.exRect.x + this.exRect.w / 2, y: this.exRect.y + this.exRect.h / 2, color: '#6dff9e', label: 'EXTRACT' });
     if (this.bomb && !this.bomb.defused && this.explored[Math.floor(this.bomb.y / T) * this.W + Math.floor(this.bomb.x / T)])
       targets.push({ x: this.bomb.x, y: this.bomb.y, color: '#ff4ac8', label: 'BOMB' });
+    // スマホでは画面外からこちらを狙っている容疑者の方向も示す
+    if (this.touchMode && !this.ended) {
+      const p = this.player;
+      for (const e of this.enemies)
+        if (e.state === 'engage' && e.stun <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 14 * T) targets.push({ x: e.x, y: e.y, color: '#ff4a3a', label: '!' });
+    }
     for (const tg of targets) {
       const sx = (tg.x - camX) * this.zoom;
       const sy = (tg.y - camY) * this.zoom;
