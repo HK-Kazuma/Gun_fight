@@ -105,13 +105,6 @@ export default function GameView({ missionIndex, opId, tutorialChapter = 0, onEn
         </div>
       )}
 
-      {touch && (
-        <div className="rotate-hint">
-          <div className="rotate-icon" />
-          端末を横向きにしてください
-        </div>
-      )}
-
       {paused && !showSettings && (
         <div className="overlay">
           <div className="pause-box">

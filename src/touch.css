@@ -256,32 +256,103 @@
   display: none;
 }
 @media (orientation: portrait) {
-  .touch-mode .rotate-hint {
+  .is-touch .rotate-hint {
     position: fixed;
     inset: 0;
-    z-index: 40;
+    z-index: 100;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 22px;
+    gap: 28px;
+    padding: 24px;
     background: var(--ink);
-    font-family: var(--jp);
-    font-size: 15px;
-    letter-spacing: 0.1em;
+    text-align: center;
+    touch-action: none;
   }
 }
-.rotate-icon {
-  width: 46px;
-  height: 78px;
-  border: 3px solid var(--amber);
-  border-radius: 8px;
-  animation: rotate-phone 1.8s ease-in-out infinite;
+.rotate-art {
+  width: min(64vw, 260px);
+  aspect-ratio: 1;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
+.rotate-arrows {
+  stroke: var(--amber);
+  stroke-width: 4;
+  animation: rotate-arrows 2.8s ease-in-out infinite;
+}
+.rotate-phone {
+  transform-origin: 100px 100px;
+  animation: rotate-phone 2.8s ease-in-out infinite;
+}
+.rotate-phone .body {
+  fill: #161d27;
+  stroke: #e8edf3;
+  stroke-width: 4;
+}
+.rotate-phone .display {
+  fill: rgba(255, 179, 71, 0.14);
+}
+.rotate-phone .detail {
+  stroke: #e8edf3;
+  stroke-width: 3;
+}
+.rotate-phone .mark {
+  stroke: var(--amber);
+  stroke-width: 2.5;
+}
+.rotate-text {
+  margin: 0;
+  font-family: var(--jp);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.rotate-text small {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--cond);
+  font-size: 12px;
+  letter-spacing: 0.35em;
+  color: var(--amber);
+}
+/* 縦向きで少し止まり、横向きに回して、消えてから最初に戻る */
 @keyframes rotate-phone {
-  40%,
+  0% {
+    transform: rotate(0);
+    opacity: 0;
+  }
+  10%,
+  25% {
+    transform: rotate(0);
+    opacity: 1;
+  }
+  60%,
+  90% {
+    transform: rotate(-90deg);
+    opacity: 1;
+  }
   100% {
     transform: rotate(-90deg);
+    opacity: 0;
+  }
+}
+@keyframes rotate-arrows {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  30%,
+  60% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rotate-phone,
+  .rotate-arrows {
+    animation: none;
   }
 }
 

@@ -8,6 +8,7 @@ import { ACHIEVEMENTS, applyResult, loadSave } from './game/achievements.js';
 import { MISSIONS } from './game/maps.js';
 import { audio } from './game/audio.js';
 import SettingsModal from './components/Settings.jsx';
+import RotateHint from './components/RotateHint.jsx';
 import { loadSettings, saveSettings, resolveTouch } from './game/settings.js';
 
 // スマホではフルスクリーン＋横向き固定を試みる（対応していない端末では何もしない）
@@ -164,6 +165,7 @@ export default function App() {
       {modal === 'ach' && <AchievementsModal save={save} onClose={() => setModal(null)} />}
       {modal === 'ctrl' && <ControlsModal touch={touch} onClose={() => setModal(null)} />}
       {modal === 'settings' && <SettingsModal settings={settings} onChange={setSettings} onClose={() => setModal(null)} currentTouch={touch} />}
+      {touch && <RotateHint />}
     </div>
   );
 }
