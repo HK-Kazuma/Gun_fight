@@ -30,6 +30,7 @@ export default function TutorialPanel({ tut, touch, radio, gameRef, paused, intr
   const step = chapter && chapter.steps[tut.si];
   const [banner, setBanner] = useState(null);
   const firstCi = useRef(tut.ci);
+  const [openId, setOpenId] = useState(null); // 小さい表示から説明を開き直した項目
 
   // 章が変わったら見出しを出す（最初の章は作戦名の表示と重なるので出さない）
   useEffect(() => {
@@ -58,6 +59,10 @@ export default function TutorialPanel({ tut, touch, radio, gameRef, paused, intr
   const last = radio.length ? radio[radio.length - 1] : null;
   const text = step.text(k, touch);
   const total = chapter.steps.length;
+  const reading = tut.readT > 0;
+  const open = reading || openId === step.id;
+  // 小さい表示では、この項目で使うキーだけを並べる
+  const keys = [...new Set(text.match(/\[\[[^\]]+\]\]/g) || [])];
 
   return (
     <>
@@ -119,7 +124,7 @@ export default function TutorialPanel({ tut, touch, radio, gameRef, paused, intr
           </div>
         )
       ) : (
-        <div className={`tut-panel ${tut.state}`} style={op ? { '--op': op.color } : undefined}>
+        <div className={`tut-panel ${tut.state} ${open ? 'full' : 'mini'}`} style={op ? { '--op': op.color } : undefined}>
           <div className="tut-panel-head">
             <span className="tut-step-no">
               {chapter.name} {tut.si + 1}/{total}
@@ -127,7 +132,18 @@ export default function TutorialPanel({ tut, touch, radio, gameRef, paused, intr
             <b>{step.title}</b>
             {tut.state === 'done' && <span className="tut-flag ok">CLEAR</span>}
             {tut.state === 'reset' && <span className="tut-flag ng">RETRY</span>}
+            {!open && tut.progress && <span className="tut-progress">{tut.progress}</span>}
             <span className="tut-tools">
+              {!reading && (
+                <button
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    setOpenId(open ? null : step.id);
+                  }}
+                >
+                  {open ? '閉じる' : '説明'}
+                </button>
+              )}
               <button onClick={() => g() && g().tutRetry()} title="この項目を最初からやり直す">
                 やり直す
               </button>
@@ -136,12 +152,25 @@ export default function TutorialPanel({ tut, touch, radio, gameRef, paused, intr
               </button>
             </span>
           </div>
-          <p className="tut-text">
-            <KeyText text={text} />
-          </p>
-          {(tut.progress || last) && (
+          {open && (
+            <p className="tut-text">
+              <KeyText text={text} />
+            </p>
+          )}
+          {!open && keys.length > 0 && (
+            <div className="tut-keys">
+              <KeyText text={keys.join('')} />
+            </div>
+          )}
+          {reading && (
+            <div className="tut-wait">
+              <span>指示を確認しろ — あと {Math.ceil(tut.readT)} 秒で開始</span>
+              <i style={{ width: `${(tut.readT / tut.readMax) * 100}%` }} />
+            </div>
+          )}
+          {((open && tut.progress) || last) && (
             <div className="tut-foot">
-              {tut.progress && <span className="tut-progress">{tut.progress}</span>}
+              {open && tut.progress && <span className="tut-progress">{tut.progress}</span>}
               {last && (
                 <span className="tut-radio">
                   <b>{last.from}</b> {last.text}

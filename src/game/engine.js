@@ -26,6 +26,8 @@ const turnTowards = (a, target, max) => {
 const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 // チュートリアル用マーカー（訓練施設マップのみで使う）
 const MARKERS = /[0-9abefgijklnopqrstuvxyz]/;
+// チュートリアルで新しい項目の説明を大きく表示する秒数（この間は動けない）
+const READ_TIME = 5;
 const DIRS4 = [
   [1, 0],
   [-1, 0],
@@ -522,6 +524,7 @@ export class Game {
       }
       if (this.paused || this.ended) return;
       this.keys[e.code] = true;
+      if (this.frozen) return; // 押した状態は覚えておき、行動はさせない
       if (e.code === 'KeyR') this.startReload();
       if (e.code === 'KeyF') this.shout(false);
       if (e.code === 'KeyQ' || e.code === 'Space') this.useAbility();
@@ -873,33 +876,12 @@ export class Game {
     this.shake = Math.max(0, this.shake - rdt * 30);
     this.shoutCd -= rdt;
 
-    if (!this.ended) {
-      this.updatePlayer(pdt, rdt);
-      this.updateInteract(rdt);
-    }
-    this.updateSquad(dt);
-    for (const e of this.enemies) this.updateEnemy(e, dt);
-    // 重なり解消
     const p = this.player;
-    for (const e of this.enemies) {
-      if (e.state === 'down') continue;
-      this.yieldTo(p, e);
-      for (const s of this.squad) this.separate(s, e, 0.5);
-    }
-    for (let i = 0; i < this.squad.length; i++) {
-      this.yieldTo(p, this.squad[i]);
-      for (let j = i + 1; j < this.squad.length; j++) this.separate(this.squad[i], this.squad[j], 0.25);
-    }
-    for (let i = 0; i < this.enemies.length; i++)
-      for (let j = i + 1; j < this.enemies.length; j++) {
-        if (this.enemies[i].state === 'down' || this.enemies[j].state === 'down') continue;
-        this.separate(this.enemies[i], this.enemies[j], 0.5);
-      }
-    this.updateHostages(dt);
-    this.updateGrenades(dt);
-    this.updateEffects(dt, rdt);
-    this.updateBomb(dt);
-    if (!this.ended) this.checkObjectives();
+    // 指示を読んでいる間は、自分も容疑者もタイマーも止める
+    if (this.frozen) {
+      this.updateReading(rdt);
+      this.updateEffects(dt, rdt);
+    } else this.updateWorld(dt, pdt, rdt);
 
     if (this.ended) {
       this.endTimer -= rdt;
@@ -939,6 +921,37 @@ export class Game {
       this.miniTimer = 0.12;
       this.drawMinimap(this.opts.minimap());
     }
+  }
+
+  // ゲーム内の出来事を1フレーム進める
+  updateWorld(dt, pdt, rdt) {
+    const p = this.player;
+    if (!this.ended) {
+      this.updatePlayer(pdt, rdt);
+      this.updateInteract(rdt);
+    }
+    this.updateSquad(dt);
+    for (const e of this.enemies) this.updateEnemy(e, dt);
+    // 重なり解消
+    for (const e of this.enemies) {
+      if (e.state === 'down') continue;
+      this.yieldTo(p, e);
+      for (const s of this.squad) this.separate(s, e, 0.5);
+    }
+    for (let i = 0; i < this.squad.length; i++) {
+      this.yieldTo(p, this.squad[i]);
+      for (let j = i + 1; j < this.squad.length; j++) this.separate(this.squad[i], this.squad[j], 0.25);
+    }
+    for (let i = 0; i < this.enemies.length; i++)
+      for (let j = i + 1; j < this.enemies.length; j++) {
+        if (this.enemies[i].state === 'down' || this.enemies[j].state === 'down') continue;
+        this.separate(this.enemies[i], this.enemies[j], 0.5);
+      }
+    this.updateHostages(dt);
+    this.updateGrenades(dt);
+    this.updateEffects(dt, rdt);
+    this.updateBomb(dt);
+    if (!this.ended) this.checkObjectives();
   }
 
   updatePlayer(dt, rdt) {
@@ -1268,7 +1281,7 @@ export class Game {
 
   useAbility() {
     const p = this.player;
-    if (this.ended || p.abilityCd > 0) return;
+    if (this.ended || this.frozen || p.abilityCd > 0) return;
     const ab = p.op.ability;
     p.abilityCd = ab.cd;
     if (ab.id === 'command') {
@@ -1888,6 +1901,8 @@ export class Game {
       ents: [],
       stepPos: null,
       cleared: 0,
+      readT: 0, // 指示を大きく表示している残り秒数
+      briefed: new Set(), // 読み終えた項目（やり直しでは大きく表示しない）
     };
     this.tutEnterChapter();
   }
@@ -1915,6 +1930,24 @@ export class Game {
     Object.assign(t, { state: 'run', timer: 0, stepT: 0, sprintT: 0, reloads: 0, flashStuns: 0, ents: [] });
     if (step.setup) step.setup(this);
     t.stepPos = { x: this.player.x, y: this.player.y };
+    t.readT = step.info || t.briefed.has(step.id) ? 0 : READ_TIME;
+    if (t.readT > 0) {
+      this.player.moving = false;
+      this.player.sprint = false;
+      this.interact = null;
+      this.interactProg = 0;
+    }
+  }
+
+  // 指示を読むための待ち時間中か
+  get frozen() {
+    return !!this.tut && this.tut.state === 'run' && this.tut.readT > 0;
+  }
+
+  updateReading(dt) {
+    const t = this.tut;
+    t.readT = Math.max(0, t.readT - dt);
+    if (t.readT === 0) t.briefed.add(this.tutStep().id);
   }
 
   tutAdvance() {
@@ -2179,6 +2212,8 @@ export class Game {
       ci: t.ci,
       si: t.si,
       state: t.state,
+      readT: t.readT,
+      readMax: READ_TIME,
       progress: step && step.progress && t.state !== 'finished' ? step.progress(this) : null,
     };
   }
