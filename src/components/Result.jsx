@@ -9,6 +9,57 @@ export default function Result({ result, unlocked, onRetry, onNext, onBrief, onT
   const r = result;
   const op = getOp(r.opId);
   const hasNext = r.success && r.missionIndex < MISSIONS.length - 1;
+  if (r.tutorial) {
+    const next = MISSIONS[r.missionIndex + 1];
+    return (
+      <div className="screen result-screen">
+        <TitleBackdrop dim={0.82} />
+        <div className="result-box ok tut-result">
+          <div className="rb-head">
+            <div>
+              <div className="rb-code">{r.missionCode}</div>
+              <h1>TRAINING COMPLETE</h1>
+              <div className="rb-reason">全訓練課程を修了した。実戦に出動できる。</div>
+            </div>
+          </div>
+          <div className="tut-result-body">
+            <p>作戦ごとに、どの隊員の強みが活きるかを考えて出動しよう。隊員はブリーフィング画面で選べる。</p>
+            <ul>
+              <li>
+                <b>HOLT</b>COMMAND で、複数の容疑者を撃たずに一斉に投降させる
+              </li>
+              <li>
+                <b>REYES</b>突入スタンと閃光弾で、待ち伏せや固まった敵を崩す
+              </li>
+              <li>
+                <b>KANE</b>長いライトと一撃の DMR、FOCUS で遠距離戦と精密射撃
+              </li>
+              <li>
+                <b>PARK</b>偵察ドローンと最速の足で、配置不明の建物や時間制限に強い
+              </li>
+            </ul>
+          </div>
+          <div className="rb-actions">
+            {next && (
+              <button className="btn btn-primary" onClick={onNext}>
+                {next.code}
+                <small>最初の作戦へ</small>
+              </button>
+            )}
+            <button className="btn" onClick={onRetry}>
+              RETRY<small>もう一度訓練する</small>
+            </button>
+            <button className="btn" onClick={onBrief}>
+              BRIEFING<small>作戦・隊員選択</small>
+            </button>
+            <button className="btn btn-ghost" onClick={onTitle}>
+              TITLE
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="screen result-screen">
       <TitleBackdrop dim={0.82} />

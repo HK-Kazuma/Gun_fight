@@ -7,8 +7,9 @@ import { resolveTouch } from '../game/settings.js';
 import Hud from './Hud.jsx';
 import TouchControls from './TouchControls.jsx';
 import SettingsModal from './Settings.jsx';
+import TutorialPanel from './TutorialPanel.jsx';
 
-export default function GameView({ missionIndex, opId, onEnd, onQuit, runKey, onRestart, settings, onSettings }) {
+export default function GameView({ missionIndex, opId, tutorialChapter = 0, onEnd, onQuit, runKey, onRestart, settings, onSettings }) {
   const canvasRef = useRef(null);
   const miniRef = useRef(null);
   const gameRef = useRef(null);
@@ -20,7 +21,9 @@ export default function GameView({ missionIndex, opId, onEnd, onQuit, runKey, on
   const touch = resolveTouch(settings);
   const layout = settings.layouts[touch ? 'touch' : 'pc'];
   const mission = MISSIONS[missionIndex];
-  const op = getOp(opId);
+  // チュートリアルでは章ごとに隊員が切り替わるので、ゲームから届いた隊員を使う
+  const op = getOp((hud && hud.opId) || opId);
+  const tut = hud && hud.tutorial;
 
   useEffect(() => {
     audio.init();
@@ -28,6 +31,7 @@ export default function GameView({ missionIndex, opId, onEnd, onQuit, runKey, on
     const g = new Game(canvasRef.current, {
       missionIndex,
       opId,
+      tutorialChapter,
       onHud: setHud,
       onRadio: (m) => setRadio((r) => [...r.slice(-3), { ...m, t: Date.now() }]),
       onPause: setPaused,
@@ -94,6 +98,12 @@ export default function GameView({ missionIndex, opId, onEnd, onQuit, runKey, on
         </div>
       )}
 
+      {tut && !(paused && showSettings) && (
+        <div className={`tut-layer ${touch ? 'touch' : ''}`}>
+          <TutorialPanel tut={tut} touch={touch} radio={radio} gameRef={gameRef} paused={paused} intro={intro} />
+        </div>
+      )}
+
       {touch && (
         <div className="rotate-hint">
           <div className="rotate-icon" />
@@ -108,8 +118,19 @@ export default function GameView({ missionIndex, opId, onEnd, onQuit, runKey, on
             <button className="btn btn-primary" onClick={resume}>
               RESUME<small>再開</small>
             </button>
+            {tut && (
+              <button
+                className="btn"
+                onClick={() => {
+                  gameRef.current && gameRef.current.tutRetry();
+                  resume();
+                }}
+              >
+                RETRY STEP<small>この項目をやり直す</small>
+              </button>
+            )}
             <button className="btn" onClick={onRestart}>
-              RESTART<small>最初から</small>
+              RESTART<small>{tut ? '選んだ章の最初から' : '最初から'}</small>
             </button>
             <button className="btn" onClick={() => setShowSettings(true)}>
               SETTINGS<small>設定・レイアウト</small>
@@ -117,7 +138,11 @@ export default function GameView({ missionIndex, opId, onEnd, onQuit, runKey, on
             <button className="btn" onClick={onQuit}>
               ABORT<small>ブリーフィングへ戻る</small>
             </button>
-            <div className="pause-tip">TIP: 気付かれていない容疑者や、閃光弾で混乱した容疑者は {touch ? '投降勧告ボタン' : '[F] の投降勧告'}に応じやすい。逮捕は無力化の3倍のスコア。</div>
+            {tut ? (
+              <div className="pause-tip">TIP: 指示パネルの「スキップ」で項目を飛ばせる。ブリーフィング画面では、好きな章から始められる。</div>
+            ) : (
+              <div className="pause-tip">TIP: 気付かれていない容疑者や、閃光弾で混乱した容疑者は {touch ? '投降勧告ボタン' : '[F] の投降勧告'}に応じやすい。逮捕は無力化の3倍のスコア。</div>
+            )}
           </div>
         </div>
       )}

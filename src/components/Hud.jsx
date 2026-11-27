@@ -1,4 +1,5 @@
 import Placed from './Placed.jsx';
+import { TUTORIAL } from '../game/tutorial.js';
 
 export const fmt = (t) => {
   t = Math.max(0, t);
@@ -35,10 +36,32 @@ export default function Hud({ hud, mission, op, radio, layout, touch, miniRef, m
   const hpPct = hud.hp / hud.maxHp;
   const abReady = hud.abilityCd <= 0;
   const pp = { layout, mul, editor };
+  const tut = hud.tutorial;
+  const chapter = tut && TUTORIAL[tut.ci];
 
   return (
     <>
       <Placed {...pp} id="objectives">
+        {chapter ? (
+          <div className="hud-tl">
+            <div className="hud-mission">
+              <span>
+                {chapter.name} — {chapter.ja}
+              </span>
+            </div>
+            <ul className="hud-obj">
+              {chapter.steps.map((s, i) => {
+                const done = i < tut.si || (i === tut.si && tut.state === 'done');
+                return (
+                  <li key={s.id} className={done ? 'done' : i === tut.si ? 'current' : 'locked'}>
+                    <i />
+                    {s.label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : (
         <div className="hud-tl">
           <div className="hud-mission">
             <span>{mission.code}</span>
@@ -64,8 +87,10 @@ export default function Hud({ hud, mission, op, radio, layout, touch, miniRef, m
             </li>
           </ul>
         </div>
+        )}
       </Placed>
 
+      {(!tut || (ob.bomb && !ob.bomb.defused)) && (
       <Placed {...pp} id="timer">
         <div className="hud-top">
           {ob.bomb && !ob.bomb.defused ? (
@@ -81,17 +106,21 @@ export default function Hud({ hud, mission, op, radio, layout, touch, miniRef, m
           )}
         </div>
       </Placed>
+      )}
 
       <Placed {...pp} id="scoremap">
         <div className="hud-tr">
-          <div className="hud-score">
-            <small>SCORE</small>
-            {hud.score.toLocaleString()}
-          </div>
+          {!tut && (
+            <div className="hud-score">
+              <small>SCORE</small>
+              {hud.score.toLocaleString()}
+            </div>
+          )}
           <canvas ref={miniRef} width={220} height={110} className="minimap" />
         </div>
       </Placed>
 
+      {!tut && (
       <Placed {...pp} id="radio">
         <div className={`radio-feed ${editor ? 'static' : ''}`}>
           {radio.map((m) => (
@@ -102,6 +131,7 @@ export default function Hud({ hud, mission, op, radio, layout, touch, miniRef, m
           ))}
         </div>
       </Placed>
+      )}
 
       <Placed {...pp} id="hp" style={{ '--op': op.color }}>
         <div className="hud-bl">

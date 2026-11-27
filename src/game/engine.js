@@ -1,6 +1,7 @@
 import { MISSIONS } from './maps.js';
 import { OPERATORS, getOp } from './operators.js';
 import { audio } from './audio.js';
+import { TUTORIAL } from './tutorial.js';
 
 export const T = 40;
 
@@ -23,6 +24,14 @@ const turnTowards = (a, target, max) => {
   return a + clamp(d, -max, max);
 };
 const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+// チュートリアル用マーカー（訓練施設マップのみで使う）
+const MARKERS = /[0-9abefgijklnopqrstuvxyz]/;
+const DIRS4 = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
 
 const SHOUTS = ['POLICE! DROP THE WEAPON!', 'SWAT! HANDS UP!', 'ON THE GROUND! NOW!', 'DROP IT! DROP IT!'];
 const COMMAND_SHOUTS = ['THIS IS YOUR LAST CHANCE! GET DOWN!', 'IT\'S OVER! WEAPONS DOWN, NOW!'];
@@ -33,7 +42,10 @@ export class Game {
     this.ctx = canvas.getContext('2d');
     this.opts = opts;
     this.mission = MISSIONS[opts.missionIndex];
+    this.tutorial = !!this.mission.tutorial;
     this.op = getOp(opts.opId);
+    this.locked = new Set(); // 施錠中のドア（"x,y"）
+    this.tut = null;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.time = 0;
     this.realTime = 0;
@@ -97,9 +109,14 @@ export class Game {
     this.bind();
     this.loop = this.loop.bind(this);
     this.last = performance.now();
+    if (this.tutorial) {
+      this.initTutorial(opts.tutorialChapter || 0);
+      setTimeout(() => this.radio('INSTRUCTOR', '訓練を開始する。指示をよく読んで動け。'), 600);
+    } else {
+      setTimeout(() => this.radio('COMMAND', `${this.mission.code}、作戦開始。${this.mission.bombTime ? '爆弾の解除を最優先せよ。' : '人質の安全を最優先せよ。'}`), 600);
+      setTimeout(() => this.squad[0] && this.radio(this.squad[0].op.name, 'スタック完了。リードについていく。'), 2600);
+    }
     this.raf = requestAnimationFrame(this.loop);
-    setTimeout(() => this.radio('COMMAND', `${this.mission.code}、作戦開始。${this.mission.bombTime ? '爆弾の解除を最優先せよ。' : '人質の安全を最優先せよ。'}`), 600);
-    setTimeout(() => this.radio(this.squad[0].op.name, 'スタック完了。リードについていく。'), 2600);
   }
 
   // ---------------- マップ解析 ----------------
@@ -116,12 +133,22 @@ export class Game {
     this.medkits = [];
     this.fires = [];
     this.extraction = [];
+    this.targets = [];
+    this.marks = {};
     this.bomb = null;
     let spawn = { x: 5, y: 5 };
     const c2 = (x) => x * T + T / 2;
     for (let y = 0; y < this.H; y++) {
       for (let x = 0; x < this.W; x++) {
         const ch = this.grid[y][x];
+        if (MARKERS.test(ch)) {
+          // マーカーは床に置き換え、位置だけ覚えておく
+          (this.marks[ch] = this.marks[ch] || []).push({ x: c2(x), y: c2(y), tx: x, ty: y });
+          const outdoorN = DIRS4.filter(([dx, dy]) => (rows[y + dy] || '')[x + dx] === ',').length;
+          this.grid[y][x] = outdoorN >= 2 ? ',' : '.';
+          if (this.grid[y][x] === ',') this.outside[y * this.W + x] = 1;
+          continue;
+        }
         switch (ch) {
           case 'P':
             spawn = { x: c2(x), y: c2(y) };
@@ -161,6 +188,7 @@ export class Game {
       }
     }
     this.stats.totalSuspects = this.enemies.length;
+    this.marks.P = [{ x: spawn.x, y: spawn.y, tx: Math.floor(spawn.x / T), ty: Math.floor(spawn.y / T) }];
     // 撤収ポイント
     const ex = this.extraction;
     this.exRect = {
@@ -196,8 +224,8 @@ export class Game {
       walkT: 0,
       op,
     };
-    // 分隊
-    const mates = OPERATORS.filter((o) => o.id !== op.id).slice(0, 2);
+    // 分隊（訓練は単独で行う）
+    const mates = this.tutorial ? [] : OPERATORS.filter((o) => o.id !== op.id).slice(0, 2);
     this.squad = mates.map((m, i) => ({
       x: spawn.x - 30,
       y: spawn.y + (i ? 30 : -30),
@@ -832,6 +860,7 @@ export class Game {
 
   update(rdt) {
     this.realTime += rdt;
+    this.rdt = rdt;
     const ws = this.focusT > 0 ? 0.3 : 1;
     const dt = rdt * ws;
     const pdt = rdt * (this.focusT > 0 ? 0.85 : 1);
@@ -955,6 +984,7 @@ export class Game {
       if (p.reloadT <= 0) {
         p.mag = p.op.weapon.mag;
         audio.reloadDone();
+        if (this.tut) this.tut.reloads++;
       }
     }
     if ((this.mouse.down || this.vFire) && p.fireCd <= 0 && p.reloadT <= 0) {
@@ -1069,6 +1099,7 @@ export class Game {
     if (src !== 'enemy') {
       for (const e of this.enemies) if (e.state !== 'down' && e.state !== 'cuffed') test(e, e.r, 'enemy');
       if (src === 'player') for (const h of this.hostages) if (h.state === 'bound') test(h, h.r, 'hostage');
+      if (src === 'player') for (const tg of this.targets) if (!tg.down) test(tg, tg.r, 'target');
     } else {
       test(this.player, this.player.r, 'player');
     }
@@ -1078,7 +1109,13 @@ export class Game {
     if (kind === 'enemy') this.damageEnemy(target, dmg, src, a);
     else if (kind === 'hostage') this.killHostage(target);
     else if (kind === 'player') this.damagePlayer(dmg);
-    else if (kind === 'barrel') {
+    else if (kind === 'target') {
+      target.down = true;
+      target.fallA = a;
+      audio.hit();
+      this.sparks(hx, hy, a + Math.PI, 6, '255,230,200');
+      this.floater(target.x, target.y - 24, 'HIT', '#ffe37a');
+    } else if (kind === 'barrel') {
       target.hp -= dmg;
       this.sparks(hx, hy, a + Math.PI, 6, '255,200,120');
       if (target.hp <= 0) this.explode(target);
@@ -1158,11 +1195,13 @@ export class Game {
   killHostage(h) {
     h.state = 'dead';
     this.floater(h.x, h.y - 24, 'CIVILIAN DOWN', '#ff3030');
-    this.fail('HOSTAGE KILLED', '人質が死亡した。作戦は失敗だ。');
+    if (this.tutorial) this.tutFail('人質に命中した。実戦なら作戦失敗だ。射線をよく確かめろ。');
+    else this.fail('HOSTAGE KILLED', '人質が死亡した。作戦は失敗だ。');
   }
 
   damagePlayer(dmg) {
     if (this.ended) return;
+    if (this.tut && this.tut.state !== 'run') return;
     const p = this.player;
     const d = dmg * p.op.armor;
     p.hp -= d;
@@ -1172,10 +1211,11 @@ export class Game {
     audio.hurt();
     if (p.hp <= 0) {
       p.hp = 0;
-      this.fail('OFFICER DOWN', `${p.op.name}が負傷し戦闘不能になった。`);
+      if (this.tutorial) this.tutFail('被弾しすぎだ。実戦なら戦闘不能になっていた。遮蔽物を使ってもう一度。');
+      else this.fail('OFFICER DOWN', `${p.op.name}が負傷し戦闘不能になった。`);
     } else if (p.hp < p.maxHp * 0.35 && !this.radioFlags.lowhp) {
       this.radioFlags.lowhp = true;
-      this.radio(this.squad[0].op.name, '被弾してるぞ！ 遮蔽を取れ！');
+      this.radio(this.squad[0] ? this.squad[0].op.name : 'INSTRUCTOR', '被弾してるぞ！ 遮蔽を取れ！');
     }
   }
 
@@ -1209,6 +1249,8 @@ export class Game {
       if (e.hp < e.maxHp * 0.5) chance += 0.3;
       if (command) chance += 0.5;
       if (e.stun > 0) chance = 0.95;
+      if (e.surrender === 'always') chance = 1;
+      if (e.surrender === 'never') chance = 0;
       if (Math.random() < chance) {
         e.state = 'surrender';
         e.stun = 0;
@@ -1298,6 +1340,7 @@ export class Game {
     this.shake = Math.max(this.shake, 8);
     audio.flashbang(ring);
     if (n > 0 && this.squad[0]) this.bubble(this.squad[0], `${n} STUNNED! MOVE IN!`, this.squad[0].op.color);
+    if (this.tut) this.tut.flashStuns += n;
   }
 
   explode(b) {
@@ -1384,7 +1427,8 @@ export class Game {
         const cx = (tx + dx) * T + T / 2;
         const cy = (ty + dy) * T + T / 2;
         const d = Math.hypot(cx - p.x, cy - p.y);
-        if (d < 52) consider(null, d + 8, { type: 'door', tx: tx + dx, ty: ty + dy, dur: 0, label: 'ドアを突破', x: cx, y: cy });
+        const locked = this.locked.has(`${tx + dx},${ty + dy}`);
+        if (d < 52) consider(null, d + 8, { type: locked ? 'locked' : 'door', tx: tx + dx, ty: ty + dy, dur: 0, label: locked ? '施錠中（指示を待て）' : 'ドアを突破', x: cx, y: cy });
       }
     return best;
   }
@@ -1394,7 +1438,7 @@ export class Game {
     const same = it && this.interact && it.type === this.interact.type && it.obj === this.interact.obj && it.tx === this.interact.tx && it.ty === this.interact.ty;
     if (!same) this.interactProg = 0;
     this.interact = it;
-    if (!it || it.type === 'door') {
+    if (!it || it.type === 'door' || it.type === 'locked') {
       this.interactProg = 0;
       return;
     }
@@ -1434,7 +1478,7 @@ export class Game {
   }
 
   openDoor(tx, ty, kicked) {
-    if (this.grid[ty][tx] !== 'D') return;
+    if (this.grid[ty][tx] !== 'D' || this.locked.has(`${tx},${ty}`)) return;
     this.grid[ty][tx] = 'd';
     this.flowCache.clear();
     const cx = tx * T + T / 2;
@@ -1593,17 +1637,23 @@ export class Game {
         e.strafeT = rand(1, 2.5);
         e.strafe *= -1;
       }
-      let ma;
-      let sp = e.speed * 0.55;
-      if (d > 6 * T) ma = this.pathDir(e, p).a;
-      else if (d < 2.4 * T) ma = toP + Math.PI;
-      else {
-        ma = toP + (Math.PI / 2) * e.strafe;
-        sp *= 0.6;
+      if (!e.anchored) {
+        let ma;
+        let sp = e.speed * 0.55;
+        if (d > 6 * T) ma = this.pathDir(e, p).a;
+        else if (d < 2.4 * T) ma = toP + Math.PI;
+        else {
+          ma = toP + (Math.PI / 2) * e.strafe;
+          sp *= 0.6;
+        }
+        this.moveEnt(e, Math.cos(ma) * sp * dt, Math.sin(ma) * sp * dt);
+        e.moving = true;
+        e.walkT += dt * 8;
       }
-      this.moveEnt(e, Math.cos(ma) * sp * dt, Math.sin(ma) * sp * dt);
-      e.moving = true;
-      e.walkT += dt * 8;
+    } else if (e.anchored && (e.state === 'engage' || e.state === 'search')) {
+      // その場から動かない容疑者（人質のそばに立つ訓練用）は、最後に見た方向を向いて待つ
+      e.state = 'search';
+      if (e.lastKnown) e.angle = turnTowards(e.angle, Math.atan2(e.lastKnown.y - e.y, e.lastKnown.x - e.x), e.turn * dt);
     } else if (e.state === 'engage' || e.state === 'search') {
       e.state = 'search';
       const lk = e.lastKnown || e.home;
@@ -1680,10 +1730,11 @@ export class Game {
 
   // ---------------- 人質 ----------------
   updateHostages(dt) {
-    const target = { x: this.exRect.x + this.exRect.w / 2, y: this.exRect.y + this.exRect.h / 2 };
+    const exit = { x: this.exRect.x + this.exRect.w / 2, y: this.exRect.y + this.exRect.h / 2 };
     for (const h of this.hostages) {
       h.anim += dt;
       if (h.state === 'escort') {
+        const target = h.exit || exit;
         const d = Math.hypot(target.x - h.x, target.y - h.y);
         if (d < 30) {
           h.state = 'safe';
@@ -1701,7 +1752,7 @@ export class Game {
   // ---------------- 爆弾 ----------------
   updateBomb(dt) {
     const b = this.bomb;
-    if (!b || b.defused || this.ended) return;
+    if (!b || b.defused || b.exploded || this.ended) return;
     b.timer -= dt;
     b.beepT -= dt;
     const urgent = b.timer < 30;
@@ -1720,9 +1771,11 @@ export class Game {
     }
     if (b.timer <= 0) {
       b.timer = 0;
+      b.exploded = true;
       this.boom(b.x, b.y, 2.2);
       this.whiteout = 2;
-      this.fail('DETONATION', '爆弾が起爆した。');
+      if (this.tutorial) this.tutFail('爆弾が起爆した。ドローンで場所を確かめ、最短ルートで向かえ。');
+      else this.fail('DETONATION', '爆弾が起爆した。');
     }
   }
 
@@ -1747,6 +1800,10 @@ export class Game {
   }
 
   checkObjectives() {
+    if (this.tutorial) {
+      this.updateTutorial();
+      return;
+    }
     const ob = this.objectives();
     if (ob.allDone && !this.radioFlags.clear) {
       this.radioFlags.clear = true;
@@ -1809,6 +1866,321 @@ export class Game {
     this.endTimer = 2.4;
     this.result = this.calcResult(false, reason, detail);
     this.radio('COMMAND', `作戦中止。${detail}`);
+  }
+
+  // ---------------- チュートリアル ----------------
+  initTutorial(ci) {
+    // 数字マーカー（各区画の入口）の隣にあるドアは、指示があるまで施錠しておく
+    for (const [ch, list] of Object.entries(this.marks)) {
+      if (!/[0-9]/.test(ch)) continue;
+      for (const m of list)
+        for (const [dx, dy] of DIRS4) if (this.tile(m.tx + dx, m.ty + dy) === 'D') this.locked.add(`${m.tx + dx},${m.ty + dy}`);
+    }
+    this.tut = {
+      ci: clamp(ci | 0, 0, TUTORIAL.length - 1),
+      si: 0,
+      state: 'run', // run / done / reset / finished
+      timer: 0,
+      stepT: 0,
+      sprintT: 0,
+      reloads: 0,
+      flashStuns: 0,
+      ents: [],
+      stepPos: null,
+      cleared: 0,
+    };
+    this.tutEnterChapter();
+  }
+
+  tutStep() {
+    const t = this.tut;
+    const ch = TUTORIAL[t.ci];
+    return ch ? ch.steps[t.si] : null;
+  }
+
+  // 章の開始：隊員の切り替えと、章の最初の位置への移動
+  tutEnterChapter() {
+    const ch = TUTORIAL[this.tut.ci];
+    const opId = ch.op || this.opts.opId;
+    if (opId !== this.op.id) this.setOperator(opId);
+    this.tutRestore();
+    const first = ch.steps[0];
+    if (first.start) this.tutTeleport(first.start);
+    this.tutBeginStep();
+  }
+
+  tutBeginStep() {
+    const t = this.tut;
+    const step = this.tutStep();
+    Object.assign(t, { state: 'run', timer: 0, stepT: 0, sprintT: 0, reloads: 0, flashStuns: 0, ents: [] });
+    if (step.setup) step.setup(this);
+    t.stepPos = { x: this.player.x, y: this.player.y };
+  }
+
+  tutAdvance() {
+    const t = this.tut;
+    t.si++;
+    if (t.si >= TUTORIAL[t.ci].steps.length) {
+      t.ci++;
+      t.si = 0;
+      if (t.ci >= TUTORIAL.length) {
+        this.tutFinish();
+        return;
+      }
+      this.tutEnterChapter();
+      return;
+    }
+    this.tutBeginStep();
+  }
+
+  // 説明だけの項目を読み終えた（ENTER / NEXT ボタン）
+  tutNext() {
+    const t = this.tut;
+    const step = t && this.tutStep();
+    if (!step || !step.info || t.state !== 'run' || this.paused) return;
+    audio.radio();
+    if (step.final) this.tutFinish();
+    else this.tutAdvance();
+  }
+
+  // 今の項目を飛ばして次へ
+  tutSkip() {
+    const t = this.tut;
+    if (!t || t.state === 'finished' || this.paused) return;
+    const step = this.tutStep();
+    if (step.info) {
+      this.tutNext();
+      return;
+    }
+    this.tutDespawn();
+    const ci = t.ci;
+    this.tutAdvance();
+    const next = this.tutStep();
+    if (t.state !== 'finished' && t.ci === ci && next && next.start) {
+      // 次の項目の開始位置に移り、配置をやり直す
+      this.tutDespawn();
+      this.tutTeleport(next.start);
+      this.tutBeginStep();
+    }
+  }
+
+  // 今の項目を最初からやり直す
+  tutRetry() {
+    const t = this.tut;
+    if (!t || t.state === 'finished') return;
+    this.tutResetStep();
+  }
+
+  tutFail(msg) {
+    const t = this.tut;
+    if (!t || t.state !== 'run') return;
+    t.state = 'reset';
+    t.timer = 2;
+    this.floater(this.player.x, this.player.y - 34, 'RETRY', '#ff7a5a');
+    this.radio('INSTRUCTOR', msg);
+    audio.empty();
+  }
+
+  tutResetStep() {
+    const step = this.tutStep();
+    this.tutDespawn();
+    this.tutRestore();
+    if (step.start) this.tutTeleport(step.start);
+    else if (this.tut.stepPos) this.tutTeleport(this.tut.stepPos);
+    this.tutBeginStep();
+  }
+
+  // 体力・弾薬・アビリティを元に戻す
+  tutRestore() {
+    const p = this.player;
+    p.hp = p.maxHp;
+    p.mag = p.op.weapon.mag;
+    p.reloadT = 0;
+    p.abilityCd = 0;
+    this.focusT = 0;
+    this.droneT = 0;
+    this.whiteout = 0;
+    this.hurtFlash = 0;
+    this.grenades = [];
+    this.interactProg = 0;
+    this.radioFlags.lowhp = false;
+  }
+
+  tutDespawn() {
+    const ents = new Set(this.tut.ents);
+    this.enemies = this.enemies.filter((o) => !ents.has(o));
+    this.hostages = this.hostages.filter((o) => !ents.has(o));
+    this.barrels = this.barrels.filter((o) => !ents.has(o));
+    this.targets = this.targets.filter((o) => !ents.has(o));
+    if (this.bomb && ents.has(this.bomb)) this.bomb = null;
+    this.bubbles = this.bubbles.filter((b) => !ents.has(b.ent));
+    this.tut.ents = [];
+  }
+
+  tutFinish() {
+    const t = this.tut;
+    if (t.state === 'finished') return;
+    t.state = 'finished';
+    this.ended = true;
+    this.endTimer = 0.4;
+    this.result = {
+      success: true,
+      tutorial: true,
+      reason: 'TRAINING COMPLETE',
+      detail: '全訓練課程を修了した。',
+      missionId: this.mission.id,
+      missionIndex: this.opts.missionIndex,
+      missionCode: this.mission.code,
+      opId: this.op.id,
+      time: Math.round(this.time * 10) / 10,
+      score: 0,
+      rank: '-',
+      breakdown: [],
+      stats: { ...this.stats, accuracy: this.stats.shots ? this.stats.hits / this.stats.shots : 1 },
+    };
+  }
+
+  updateTutorial() {
+    const t = this.tut;
+    if (!t || t.state === 'finished') return;
+    const dt = this.rdt || 0;
+    const step = this.tutStep();
+    t.stepT += dt;
+    if (this.player.sprint) t.sprintT += dt;
+    if (t.state === 'done') {
+      t.timer -= dt;
+      if (t.timer <= 0) this.tutAdvance();
+      return;
+    }
+    if (t.state === 'reset') {
+      t.timer -= dt;
+      if (t.timer <= 0) this.tutResetStep();
+      return;
+    }
+    if (step.info) return;
+    const f = step.fail && step.fail(this);
+    if (f) {
+      this.tutFail(f);
+      return;
+    }
+    if (step.check && step.check(this)) {
+      t.state = 'done';
+      t.timer = 1.4;
+      t.cleared++;
+      audio.success();
+      this.floater(this.player.x, this.player.y - 34, 'CLEAR', '#7dff9a');
+      this.radio('INSTRUCTOR', pick(['よし、合格だ。', 'いいぞ。その調子だ。', '上出来だ。次へ進め。', '問題ない。次だ。']));
+    }
+  }
+
+  setOperator(id) {
+    const op = getOp(id);
+    const p = this.player;
+    this.op = op;
+    p.op = op;
+    p.maxHp = op.hp;
+    p.hp = op.hp;
+    p.mag = op.weapon.mag;
+    p.reloadT = 0;
+    p.fireCd = 0;
+    p.abilityCd = 0;
+    this.bloom = 0;
+  }
+
+  tutTeleport(m) {
+    const pos = typeof m === 'string' ? this.tutMark(m) : m;
+    if (!pos) return;
+    const p = this.player;
+    p.x = pos.x;
+    p.y = pos.y;
+    if (this.cam) {
+      this.cam.x = p.x;
+      this.cam.y = p.y;
+    }
+    this.interactProg = 0;
+    this.updateExplored();
+  }
+
+  // ---- 台本（tutorial.js）から使う道具 ----
+  tutMarks(ch) {
+    return this.marks[ch] || [];
+  }
+  tutMark(ch) {
+    return this.tutMarks(ch)[0];
+  }
+  near(ch, r) {
+    const m = this.tutMark(ch);
+    return !!m && Math.hypot(m.x - this.player.x, m.y - this.player.y) < r * T;
+  }
+  unlock(ch) {
+    for (const m of this.tutMarks(ch)) for (const [dx, dy] of DIRS4) this.locked.delete(`${m.tx + dx},${m.ty + dy}`);
+  }
+  doorOpen(ch) {
+    return this.tutMarks(ch).some((m) => DIRS4.some(([dx, dy]) => this.tile(m.tx + dx, m.ty + dy) === 'd'));
+  }
+  spawnEnemies(ch, o = {}) {
+    return this.tutMarks(ch).map((m) => {
+      const e = this.makeEnemy(m.x, m.y, !!o.heavy);
+      if (o.angle !== undefined) {
+        e.angle = o.angle;
+        e.baseAngle = o.angle;
+      }
+      e.surrender = o.surrender || null;
+      e.anchored = !!o.anchored;
+      e._tk = 'enemy';
+      this.enemies.push(e);
+      this.tut.ents.push(e);
+      return e;
+    });
+  }
+  spawnHostages(ch, exitCh) {
+    const exit = exitCh ? this.tutMark(exitCh) : null;
+    for (const m of this.tutMarks(ch)) {
+      const h = { x: m.x, y: m.y, r: 12, state: 'bound', angle: rand(0, 6.28), anim: rand(0, 10), sobT: 0, exit, _tk: 'hostage' };
+      this.hostages.push(h);
+      this.tut.ents.push(h);
+    }
+  }
+  spawnBarrels(ch) {
+    for (const m of this.tutMarks(ch)) {
+      const b = { x: m.x, y: m.y, r: 14, hp: 30, exploded: false, _tk: 'barrel' };
+      this.barrels.push(b);
+      this.tut.ents.push(b);
+    }
+  }
+  spawnTargets(ch) {
+    for (const m of this.tutMarks(ch)) {
+      const tg = { x: m.x, y: m.y, r: 13, down: false, fallA: 0, _tk: 'target' };
+      this.targets.push(tg);
+      this.tut.ents.push(tg);
+    }
+  }
+  spawnBomb(ch, time) {
+    const m = this.tutMark(ch);
+    if (!m) return;
+    this.bomb = { x: m.x, y: m.y, defused: false, timer: time, beepT: 0, _tk: 'bomb' };
+    this.radioFlags.b60 = time <= 60;
+    this.radioFlags.b20 = false;
+    this.tut.ents.push(this.bomb);
+  }
+  // 今の目的地（ワールド座標）
+  tutGoal() {
+    const t = this.tut;
+    if (!t || t.state !== 'run') return null;
+    const step = this.tutStep();
+    if (!step || !step.goal) return null;
+    if (step.goal === 'extract') return { x: this.exRect.x + this.exRect.w / 2, y: this.exRect.y + this.exRect.h / 2, extract: true };
+    return this.tutMark(step.goal);
+  }
+  tutHud() {
+    const t = this.tut;
+    const step = this.tutStep();
+    return {
+      ci: t.ci,
+      si: t.si,
+      state: t.state,
+      progress: step && step.progress && t.state !== 'finished' ? step.progress(this) : null,
+    };
   }
 
   // ---------------- エフェクト ----------------
@@ -1898,11 +2270,13 @@ export class Game {
       abilityCd: p.abilityCd,
       abilityMax: p.op.ability.cd,
       abilityActive: this.focusT > 0 ? this.focusT / 5 : this.droneT > 0 ? this.droneT / 7 : 0,
-      interact: this.interact ? { label: this.interact.label, prog: this.interactProg, hold: this.interact.type !== 'door' } : null,
+      interact: this.interact ? { label: this.interact.label, prog: this.interactProg, hold: this.interact.type !== 'door' && this.interact.type !== 'locked' } : null,
       objectives: ob,
       time: this.time,
       score: Math.max(0, this.score.neutralize + this.score.arrest + this.score.hostage + this.score.bomb + this.score.penalty),
       ended: this.ended,
+      opId: this.op.id,
+      tutorial: this.tut ? this.tutHud() : null,
     });
   }
 
@@ -1935,6 +2309,7 @@ export class Game {
     for (const m of this.medkits) if (!m.taken) this.drawMedkit(ctx, m);
     if (this.bomb) this.drawBomb(ctx, this.bomb);
     for (const b of this.barrels) if (!b.exploded) this.drawBarrel(ctx, b);
+    for (const tg of this.targets) this.drawTarget(ctx, tg);
     for (const pa of this.particles) if (pa.kind === 'debris' || pa.kind === 'dust') this.drawParticle(ctx, pa);
     for (const e of this.enemies) if (e.state === 'down') this.drawEnemy(ctx, e);
     for (const h of this.hostages) if (h.state !== 'safe') this.drawHostage(ctx, h);
@@ -1984,6 +2359,7 @@ export class Game {
     for (const pa of this.particles) if (pa.kind === 'spark' || pa.kind === 'fire') this.drawParticle(ctx, pa);
     ctx.globalCompositeOperation = 'source-over';
     this.drawExtraction(ctx, true);
+    if (this.tut) this.drawTutorialMarks(ctx);
     if (this.droneT > 0) this.drawDroneReveal(ctx);
     this.drawIndicators(ctx);
     for (const f of this.floaters) {
@@ -2155,7 +2531,8 @@ export class Game {
 
   drawExtraction(ctx, top) {
     const r = this.exRect;
-    const ready = this.objectives().allDone;
+    const goal = this.tut ? this.tutGoal() : null;
+    const ready = this.tut ? !!(goal && goal.extract) : this.objectives().allDone;
     const t = this.realTime;
     if (!top) {
       ctx.fillStyle = ready ? `rgba(80,255,140,${0.08 + Math.sin(t * 4) * 0.04})` : 'rgba(80,255,140,0.04)';
@@ -2301,6 +2678,79 @@ export class Game {
     ctx.moveTo(b.x + 16, b.y - 6);
     ctx.quadraticCurveTo(b.x + 24, b.y, b.x + 16, b.y + 6);
     ctx.stroke();
+  }
+
+  drawTarget(ctx, tg) {
+    ctx.save();
+    ctx.translate(tg.x, tg.y);
+    if (tg.down) {
+      // 倒れた標的
+      ctx.rotate(tg.fallA);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(-4, -12, 10, 26);
+      ctx.fillStyle = '#6b6258';
+      ctx.fillRect(-2, -12, 6, 24);
+      ctx.restore();
+      return;
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(3, 4, 15, 13, 0, 0, 7);
+    ctx.fill();
+    const rings = ['#e9e3d4', '#c0392b', '#e9e3d4', '#c0392b'];
+    rings.forEach((c, i) => {
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.arc(0, 0, tg.r - i * 3.2, 0, 7);
+      ctx.fill();
+    });
+    ctx.strokeStyle = '#3a2d20';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, tg.r, 0, 7);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 施錠ドアのランプと、目的地のマーカー
+  drawTutorialMarks(ctx) {
+    const t = this.realTime;
+    for (const k of this.locked) {
+      const [x, y] = k.split(',').map(Number);
+      if (this.grid[y][x] !== 'D') continue;
+      const cx = x * T + T / 2;
+      const cy = y * T + T / 2;
+      const a = 0.55 + Math.sin(t * 4) * 0.3;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 16);
+      g.addColorStop(0, `rgba(255,50,40,${0.5 * a})`);
+      g.addColorStop(1, 'rgba(255,50,40,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - 16, cy - 16, 32, 32);
+      ctx.fillStyle = `rgba(255,70,50,${0.6 + a * 0.4})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3.2, 0, 7);
+      ctx.fill();
+    }
+    const goal = this.tutGoal();
+    if (goal && !goal.extract) {
+      const pulse = (t * 1.4) % 1;
+      ctx.strokeStyle = `rgba(255,211,74,${0.9 - pulse * 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(goal.x, goal.y, 10 + pulse * 18, 0, 7);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,211,74,0.9)';
+      ctx.setLineDash([6, 5]);
+      ctx.lineDashOffset = -t * 16;
+      ctx.beginPath();
+      ctx.arc(goal.x, goal.y, 16, 0, 7);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffd34a';
+      ctx.font = '700 11px Bahnschrift, "Arial Narrow", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('GO', goal.x, goal.y - 24 + Math.sin(t * 4) * 2);
+    }
   }
 
   drawGrenade(ctx, g) {
@@ -2727,9 +3177,11 @@ export class Game {
   }
 
   drawOffscreenArrows(ctx, camX, camY) {
-    const ob = this.objectives();
     const targets = [];
-    if (ob.allDone) targets.push({ x: this.exRect.x + this.exRect.w / 2, y: this.exRect.y + this.exRect.h / 2, color: '#6dff9e', label: 'EXTRACT' });
+    if (this.tut) {
+      const goal = this.tutGoal();
+      if (goal) targets.push({ x: goal.x, y: goal.y, color: goal.extract ? '#6dff9e' : '#ffd34a', label: goal.extract ? 'EXTRACT' : 'GO' });
+    } else if (this.objectives().allDone) targets.push({ x: this.exRect.x + this.exRect.w / 2, y: this.exRect.y + this.exRect.h / 2, color: '#6dff9e', label: 'EXTRACT' });
     if (this.bomb && !this.bomb.defused && this.explored[Math.floor(this.bomb.y / T) * this.W + Math.floor(this.bomb.x / T)])
       targets.push({ x: this.bomb.x, y: this.bomb.y, color: '#ff4ac8', label: 'BOMB' });
     for (const tg of targets) {

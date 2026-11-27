@@ -48,6 +48,12 @@ export function applyResult(save, r) {
       unlocked.push(id);
     }
   };
+  // 訓練の結果は修了の記録だけ残し、実績やベストスコアには数えない
+  if (r.tutorial) {
+    if (r.success) next.tutorialDone = true;
+    writeSave(next);
+    return { save: next, unlocked };
+  }
   if (r.stats.explosionMulti >= 2) unlock('demo');
   if (r.success) {
     const prev = next.best[r.missionId];
@@ -69,7 +75,7 @@ export function applyResult(save, r) {
     if (r.rank === 'S') unlock('elite');
     if (r.stats.shots >= 10 && r.stats.hits / r.stats.shots >= 0.7) unlock('sharp');
     if (next.ops.length >= 4) unlock('squad');
-    if (MISSIONS.every((m) => next.best[m.id])) unlock('campaign');
+    if (MISSIONS.filter((m) => !m.tutorial).every((m) => next.best[m.id])) unlock('campaign');
   }
   writeSave(next);
   return { save: next, unlocked };

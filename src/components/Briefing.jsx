@@ -3,6 +3,7 @@ import { MISSIONS } from '../game/maps.js';
 import { OPERATORS } from '../game/operators.js';
 import { drawTrooper } from '../game/silhouette.js';
 import TitleBackdrop from './TitleBackdrop.jsx';
+import { TUTORIAL } from '../game/tutorial.js';
 
 // 画面の回転やリサイズで表示サイズが変わったら、キャンバスを描き直すためのキー
 function useViewportKey() {
@@ -114,7 +115,7 @@ function Bars({ v }) {
   );
 }
 
-export default function Briefing({ missionIndex, setMissionIndex, opId, setOpId, onDeploy, onBack, save }) {
+export default function Briefing({ missionIndex, setMissionIndex, opId, setOpId, tutChapter, setTutChapter, onDeploy, onBack, save }) {
   const m = MISSIONS[missionIndex];
   const op = OPERATORS.find((o) => o.id === opId);
   const hostages = m.layout.join('').split('h').length - 1;
@@ -138,10 +139,22 @@ export default function Briefing({ missionIndex, setMissionIndex, opId, setOpId,
           <h3>OPERATIONS</h3>
           {MISSIONS.map((mm, i) => {
             const best = save.best[mm.id];
+            if (mm.tutorial)
+              return (
+                <button key={mm.id} className={`mission-card tutorial ${i === missionIndex ? 'active' : ''}`} onClick={() => setMissionIndex(i)}>
+                  <div className="mc-top">
+                    <span className="mc-num">TRAINING</span>
+                    <span className="mc-tag">TUTORIAL</span>
+                  </div>
+                  <div className="mc-code">{mm.code}</div>
+                  <div className="mc-title">{mm.title}</div>
+                  <div className="mc-best">{save.tutorialDone ? 'COMPLETED' : 'RECOMMENDED — まずはここから'}</div>
+                </button>
+              );
             return (
               <button key={mm.id} className={`mission-card ${i === missionIndex ? 'active' : ''}`} onClick={() => setMissionIndex(i)}>
                 <div className="mc-top">
-                  <span className="mc-num">0{i + 1}</span>
+                  <span className="mc-num">0{MISSIONS.filter((x) => !x.tutorial).indexOf(mm) + 1}</span>
                   <span className="mc-diff">
                     {'■'.repeat(mm.difficulty)}
                     <em>{'■'.repeat(3 - mm.difficulty)}</em>
@@ -159,6 +172,34 @@ export default function Briefing({ missionIndex, setMissionIndex, opId, setOpId,
             INTEL <small>{m.location}</small>
           </h3>
           <MapPreview mission={m} />
+          {m.tutorial ? (
+            <>
+              <p className="brief-text">{m.briefing}</p>
+              <div className="tut-chapters">
+                <div className="tut-chapters-head">CURRICULUM — 始める章を選択</div>
+                {TUTORIAL.map((c, i) => {
+                  const cop = c.op && OPERATORS.find((o) => o.id === c.op);
+                  return (
+                    <button
+                      key={c.id}
+                      className={`tut-chapter ${i === tutChapter ? 'active' : ''}`}
+                      style={cop ? { '--op': cop.color } : undefined}
+                      onClick={() => setTutChapter(i)}
+                    >
+                      <span className="tc-no">{String(i + 1).padStart(2, '0')}</span>
+                      <span className="tc-body">
+                        <b>
+                          {c.name} <em>{c.ja}</em>
+                        </b>
+                        <small>{c.desc}</small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <>
           <div className="intel-stats">
             <div>
               <b>{suspects}</b>
@@ -184,6 +225,8 @@ export default function Briefing({ missionIndex, setMissionIndex, opId, setOpId,
             <li>容疑者を全員 逮捕 または 無力化 する</li>
             <li>撤収ポイント（指揮車両）へ帰還する</li>
           </ul>
+            </>
+          )}
         </section>
         <section className="panel squad">
           <h3>SELECT OPERATOR</h3>
@@ -233,10 +276,12 @@ export default function Briefing({ missionIndex, setMissionIndex, opId, setOpId,
               </div>
             </div>
             <div className="od-squad">
-              同行: {OPERATORS.filter((o) => o.id !== op.id)
-                .slice(0, 2)
-                .map((o) => o.name)
-                .join(' / ')}
+              {m.tutorial
+                ? '基本操作の章は選んだ隊員で行う。隊員ごとの章では、その隊員に自動で切り替わる（訓練は単独）。'
+                : `同行: ${OPERATORS.filter((o) => o.id !== op.id)
+                    .slice(0, 2)
+                    .map((o) => o.name)
+                    .join(' / ')}`}
             </div>
           </div>
         </section>

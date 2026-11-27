@@ -27,9 +27,11 @@ function enterLandscape() {
 export default function App() {
   const [screen, setScreen] = useState('title');
   const [modal, setModal] = useState(null);
-  const [missionIndex, setMissionIndex] = useState(0);
-  const [opId, setOpId] = useState('holt');
   const [save, setSave] = useState(() => loadSave());
+  // 訓練を終えるまでは、作戦一覧の先頭（チュートリアル）を選んでおく
+  const [missionIndex, setMissionIndex] = useState(() => (save.tutorialDone ? 1 : 0));
+  const [tutChapter, setTutChapter] = useState(0);
+  const [opId, setOpId] = useState('holt');
   const [result, setResult] = useState(null);
   const [unlocked, setUnlocked] = useState([]);
   const [runKey, setRunKey] = useState(0);
@@ -125,6 +127,8 @@ export default function App() {
           setMissionIndex={setMissionIndex}
           opId={opId}
           setOpId={setOpId}
+          tutChapter={tutChapter}
+          setTutChapter={setTutChapter}
           onDeploy={deploy}
           onBack={() => setScreen('title')}
           save={save}
@@ -136,6 +140,7 @@ export default function App() {
           runKey={runKey}
           missionIndex={missionIndex}
           opId={opId}
+          tutorialChapter={tutChapter}
           onEnd={onEnd}
           onQuit={() => setScreen('brief')}
           onRestart={deploy}
