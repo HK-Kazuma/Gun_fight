@@ -23,6 +23,7 @@ const turnTowards = (a, target, max) => {
   const d = angDiff(a, target);
   return a + clamp(d, -max, max);
 };
+const AIM_TURN_RATE = 15; // 視点操作の速さ 100% あたりの回転速度（rad/秒）
 const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 // チュートリアル用マーカー（訓練施設マップのみで使う）
 const MARKERS = /[0-9abefgijklnopqrstuvxyz]/;
@@ -62,6 +63,8 @@ export class Game {
     this.autoFace = opts.autoFace !== false;
     this.vMove = null;
     this.vAim = null;
+    this.aimTarget = 0; // 照準スティックが指している向き
+    this.aimSpeed = opts.aimSpeed || 1; // 視点操作の速さ（1 で即座に向く）
     this.vFire = false;
     this.vSprint = false;
     this.aimAng = 0;
@@ -594,6 +597,7 @@ export class Game {
     if (o.touch !== undefined) this.touchMode = !!o.touch;
     if (o.zoomMul !== undefined) this.zoomMul = o.zoomMul;
     if (o.autoFace !== undefined) this.autoFace = o.autoFace;
+    if (o.aimSpeed !== undefined) this.aimSpeed = o.aimSpeed;
     this.resize();
   }
   // キー入力をそのまま再現する（R / F / Q / E など）
@@ -611,7 +615,9 @@ export class Game {
   setAim(v) {
     if (v && Math.hypot(v.x, v.y) > 0.15) {
       const m = Math.min(1, Math.hypot(v.x, v.y));
-      this.aimAng = Math.atan2(v.y, v.x);
+      this.aimTarget = Math.atan2(v.y, v.x);
+      // 最速以外は、毎フレーム少しずつ向きを変える
+      if (this.aimSpeed >= 1) this.aimAng = this.aimTarget;
       this.aimDist = (1.8 + m * 5.7) * T;
       this.vAim = v;
       this.aimLocked = true;
@@ -985,6 +991,7 @@ export class Game {
         this.aimAng = turnTowards(this.aimAng, Math.atan2(my, mx), rdt * 9);
         this.aimDist += (4.5 * T - this.aimDist) * Math.min(1, rdt * 3);
       }
+      if (this.vAim) this.aimAng = turnTowards(this.aimAng, this.aimTarget, rdt * this.aimSpeed * AIM_TURN_RATE);
       this.mouse.x = (p.x + Math.cos(this.aimAng) * this.aimDist - this.camX) * this.zoom;
       this.mouse.y = (p.y + Math.sin(this.aimAng) * this.aimDist - this.camY) * this.zoom;
     }

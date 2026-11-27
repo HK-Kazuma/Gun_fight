@@ -40,6 +40,7 @@ export default function GameView({ missionIndex, opId, tutorialChapter = 0, onEn
       touch,
       zoomMul: settings.zoom,
       autoFace: settings.autoFace,
+      aimSpeed: settings.aimSpeed,
     });
     gameRef.current = g;
     if (import.meta.env.DEV) window.__bcGame = g; // 開発時のデバッグ用
@@ -59,8 +60,8 @@ export default function GameView({ missionIndex, opId, tutorialChapter = 0, onEn
 
   // 設定の変更をゲームに反映
   useEffect(() => {
-    gameRef.current && gameRef.current.setOptions({ touch, zoomMul: settings.zoom, autoFace: settings.autoFace });
-  }, [touch, settings.zoom, settings.autoFace]);
+    gameRef.current && gameRef.current.setOptions({ touch, zoomMul: settings.zoom, autoFace: settings.autoFace, aimSpeed: settings.aimSpeed });
+  }, [touch, settings.zoom, settings.autoFace, settings.aimSpeed]);
 
   // タッチ操作で縦向きになったらポーズ
   useEffect(() => {

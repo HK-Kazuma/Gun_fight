@@ -209,6 +209,8 @@ export default function SettingsModal({ settings, onChange, onClose, mission, op
                 ? '画面右側の触れた位置が、照準スティックの中心になります。'
                 : '照準スティックは、レイアウト編集で配置した場所に固定されます。'}
             </p>
+            <Slider label="視点の速さ" value={settings.aimSpeed} min={0.1} max={1} onChange={(v) => set({ aimSpeed: v })} format={(v) => (v >= 1 ? '最速' : pct(v))} />
+            <p className="set-note">照準スティックを倒した方向へ向く速さです。「最速」はすぐに向きます。</p>
             <Toggle label="フローティングスティック"desc="画面左側のどこを触っても移動スティックが出る" value={settings.floatingStick} onChange={(v) => set({ floatingStick: v })} />
             <Toggle label="ダッシュを切り替え式にする" desc="オフにすると押している間だけダッシュ" value={settings.dashToggle} onChange={(v) => set({ dashToggle: v })} />
             <Toggle label="スティックを端まで倒してダッシュ" value={settings.stickDash} onChange={(v) => set({ stickDash: v })} />

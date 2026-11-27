@@ -90,6 +90,7 @@ export const DEFAULT_SETTINGS = {
   dashToggle: true, // ダッシュボタンを押すたびに切り替え
   stickDash: false, // スティックを端まで倒すとダッシュ
   aimAutoFire: false, // 照準スティックを大きく倒すと自動射撃
+  aimSpeed: 1, // 視点操作の速さ（0.1〜1。1 はスティックの向きへ即座に向く）
   autoFace: true, // 照準していない時は移動方向を向く
   tapAim: true, // 画面右側をタップした位置に照準
   vibrate: true,
