@@ -195,12 +195,26 @@ export default function SettingsModal({ settings, onChange, onClose, mission, op
           </section>
           <section>
             <h3>タッチ操作</h3>
-            <Toggle label="フローティングスティック" desc="画面左側のどこを触っても移動スティックが出る" value={settings.floatingStick} onChange={(v) => set({ floatingStick: v })} />
+            <Segment
+              label="視点操作"
+              value={settings.aimStickMode}
+              options={[
+                ['fixed', '固定'],
+                ['float', '移動'],
+              ]}
+              onChange={(v) => set({ aimStickMode: v })}
+            />
+            <p className="set-note">
+              {settings.aimStickMode === 'float'
+                ? '画面右側の触れた位置が、照準スティックの中心になります。'
+                : '照準スティックは、レイアウト編集で配置した場所に固定されます。'}
+            </p>
+            <Toggle label="フローティングスティック"desc="画面左側のどこを触っても移動スティックが出る" value={settings.floatingStick} onChange={(v) => set({ floatingStick: v })} />
             <Toggle label="ダッシュを切り替え式にする" desc="オフにすると押している間だけダッシュ" value={settings.dashToggle} onChange={(v) => set({ dashToggle: v })} />
             <Toggle label="スティックを端まで倒してダッシュ" value={settings.stickDash} onChange={(v) => set({ stickDash: v })} />
             <Toggle label="照準スティックで自動射撃" desc="照準スティックを大きく倒すと撃つ" value={settings.aimAutoFire} onChange={(v) => set({ aimAutoFire: v })} />
             <Toggle label="移動方向に自動で向く" desc="一度照準するまで、ライトが進行方向を向く" value={settings.autoFace} onChange={(v) => set({ autoFace: v })} />
-            <Toggle label="タップした場所に照準" desc="ボタン以外の画面をタッチした方向を向く" value={settings.tapAim} onChange={(v) => set({ tapAim: v })} />
+            <Toggle label="タップした場所に照準" desc={settings.aimStickMode === 'float' ? '視点操作が「移動」の間、画面右側は照準スティックになる' : 'ボタン以外の画面をタッチした方向を向く'} value={settings.tapAim} onChange={(v) => set({ tapAim: v })} />
             <Toggle label="振動" value={settings.vibrate} onChange={(v) => set({ vibrate: v })} />
           </section>
         </div>

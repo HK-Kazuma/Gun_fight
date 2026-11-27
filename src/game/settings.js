@@ -86,6 +86,7 @@ export const DEFAULT_SETTINGS = {
   controlOpacity: 0.7,
   zoom: 1,
   floatingStick: true, // 画面左側のどこを触ってもスティックが出る
+  aimStickMode: 'fixed', // 視点操作 'fixed': 配置した場所に固定 | 'float': 画面右側の触れた位置が中心
   dashToggle: true, // ダッシュボタンを押すたびに切り替え
   stickDash: false, // スティックを端まで倒すとダッシュ
   aimAutoFire: false, // 照準スティックを大きく倒すと自動射撃

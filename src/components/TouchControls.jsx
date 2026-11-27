@@ -62,6 +62,8 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
   const layerRef = useRef(null);
   const st = useRef({ move: null, aim: null, fire: null, tap: null, dashBtn: false, stickEdge: false, fireBtn: false, aimFire: false });
   const [floatAt, setFloatAt] = useState(null);
+  const [aimAt, setAimAt] = useState(null);
+  const aimFloating = settings.aimStickMode === 'float';
   const [pressed, setPressed] = useState({});
   const [dashOn, setDashOn] = useState(false);
   const g = () => gameRef && gameRef.current;
@@ -178,9 +180,20 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
     e.preventDefault();
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
-    const r = e.currentTarget.getBoundingClientRect();
-    s.aim = { id: e.pointerId, ...relativeAim(e, r.width / 2) };
-    setKnob(aimKnob, s.aim.from, CTRL_SIZE.aimStick);
+    if (aimFloating) {
+      // 移動式：触れた位置をスティックの中心にする
+      const layer = layerRef.current && layerRef.current.parentElement;
+      if (!layer) return;
+      const lr = layer.getBoundingClientRect();
+      const R = (CTRL_SIZE.aimStick * layout.aimStick.s) / 2;
+      s.aim = { id: e.pointerId, cx: e.clientX, cy: e.clientY, R, sx: e.clientX, sy: e.clientY, dragged: false, floating: true };
+      setAimAt({ x: e.clientX - lr.left, y: e.clientY - lr.top });
+      setKnob(aimKnob, null);
+    } else {
+      const r = e.currentTarget.getBoundingClientRect();
+      s.aim = { id: e.pointerId, ...relativeAim(e, r.width / 2) };
+      setKnob(aimKnob, s.aim.from, CTRL_SIZE.aimStick);
+    }
     setPress('aimStick', true);
   };
   const aimUpdate = (e) => {
@@ -188,7 +201,8 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
     if (!s.aim || s.aim.id !== e.pointerId) return;
     if (!s.aim.dragged && Math.hypot(e.clientX - s.aim.sx, e.clientY - s.aim.sy) < SLOP) return;
     s.aim.dragged = true;
-    const v = dragVec(s.aim, e);
+    // 移動式は中心を動かさない。固定式は可動範囲を超えると中心が指を追う
+    const v = s.aim.floating ? stickVec(s.aim, e) : dragVec(s.aim, e);
     setKnob(aimKnob, v, CTRL_SIZE.aimStick);
     const game = g();
     if (!game) return;
@@ -204,6 +218,7 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
     if (!s.aim || s.aim.id !== e.pointerId) return;
     s.aim = null;
     s.aimFire = false;
+    setAimAt(null);
     setPress('aimStick', false);
     g() && g().setAim(null);
     syncFire();
@@ -331,11 +346,11 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
   const abReady = hud.abilityCd <= 0;
   const ia = hud.interact && !hud.ended;
   const size = (id) => ({ width: CTRL_SIZE[id], height: CTRL_SIZE[id] });
-  const ml = layout.moveStick;
-  const floatStyle =
-    floatAt && ml
-      ? { left: floatAt.x, top: floatAt.y, transform: `translate(-50%, -50%) scale(${ml.s})`, transformOrigin: '50% 50%' }
-      : undefined;
+  // 触れた位置にスティックを表示する
+  const floatStyle = (at, l) =>
+    at && l ? { left: at.x, top: at.y, transform: `translate(-50%, -50%) scale(${l.s})`, transformOrigin: '50% 50%' } : undefined;
+  const aimHandlers = { onPointerDown: aimStart, onPointerMove: aimUpdate, onPointerUp: aimEnd, onPointerCancel: aimEnd };
+  const tapHandlers = { onPointerDown: tapStart, onPointerMove: tapMove, onPointerUp: tapEnd, onPointerCancel: tapEnd };
 
   return (
     <>
@@ -348,7 +363,7 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
             onPointerUp={(e) => (st.current.move ? moveEnd(e) : tapEnd(e))}
             onPointerCancel={(e) => (st.current.move ? moveEnd(e) : tapEnd(e))}
           />
-          <div className="tc-zone right" onPointerDown={tapStart} onPointerMove={tapMove} onPointerUp={tapEnd} onPointerCancel={tapEnd} />
+          <div className="tc-zone right" {...(aimFloating ? aimHandlers : tapHandlers)} />
         </div>
       )}
       <span ref={layerRef} className="tc-anchor" />
@@ -357,7 +372,7 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
         {...pp}
         id="moveStick"
         interactive
-        style={floatStyle}
+        style={floatStyle(floatAt, layout.moveStick)}
         onPointerDown={(e) => moveStart(e, false)}
         onPointerMove={moveUpdate}
         onPointerUp={moveEnd}
@@ -369,7 +384,7 @@ export default function TouchControls({ gameRef, hud, op, layout, settings, edit
         </div>
       </Placed>
 
-      <Placed {...pp} id="aimStick" interactive {...h({ onPointerDown: aimStart, onPointerMove: aimUpdate, onPointerUp: aimEnd, onPointerCancel: aimEnd })}>
+      <Placed {...pp} id="aimStick" style={floatStyle(aimAt, layout.aimStick)} interactive {...h(aimHandlers)}>
         <div className={`tc-stick aim ${pressed.aimStick ? 'on' : ''}`} style={size('aimStick')}>
           <span className="tc-stick-label">AIM</span>
           <div className="tc-knob" ref={aimKnob}>
